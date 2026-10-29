@@ -1,0 +1,1 @@
+{"name":"DemonWeave.Editor","references":["DemonWeave.Core","DemonWeave.Unity"],"includePlatforms":["Editor"]}

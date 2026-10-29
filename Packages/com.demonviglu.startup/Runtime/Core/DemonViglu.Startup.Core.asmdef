@@ -1,0 +1,5 @@
+{
+  "name": "DemonViglu.Startup.Core",
+  "rootNamespace": "DemonViglu.Startup",
+  "noEngineReferences": true
+}

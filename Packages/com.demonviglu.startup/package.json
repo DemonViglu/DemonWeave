@@ -1,0 +1,11 @@
+{
+  "name": "com.demonviglu.startup",
+  "version": "0.1.0",
+  "displayName": "DemonViglu Startup",
+  "description": "Explicit application lifetime, ordered features, game loop and scoped events.",
+  "unity": "6000.0",
+  "dependencies": {
+    "com.unity.modules.imgui": "1.0.0",
+    "com.unity.modules.physics": "1.0.0"
+  }
+}

@@ -1,0 +1,31 @@
+/Library/
+/Temp/
+/Logs/
+/Obj/
+/UserSettings/
+/.vs/
+*.csproj
+*.sln
+*.slnx
+/Work/TEMP/
+
+# Local planning, design material, archives and agent instructions
+/docs/
+/Archive/
+/Work/
+/AGENTS.md
+/README.md
+
+# Local secrets and generated builds
+.env
+.env.*
+*.key
+*.pem
+*.p12
+*.pfx
+*.keystore
+/Build/
+/Builds/
+/MemoryCaptures/
+/Recordings/
+*.log

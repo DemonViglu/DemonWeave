@@ -1,0 +1,11 @@
+{
+  "name": "com.demon.weave",
+  "version": "0.1.0",
+  "displayName": "Demon Weave Quest",
+  "description": "Small local quest lifecycle and human authoring adapter.",
+  "unity": "6000.5",
+  "dependencies": {
+    "com.demonviglu.startup": "0.1.0",
+    "com.unity.nuget.newtonsoft-json": "3.2.2"
+  }
+}
