@@ -1,0 +1,11 @@
+{
+  "name": "com.demon.weave.presentation",
+  "version": "0.1.0",
+  "displayName": "Demon Weave Presentation",
+  "description": "Optional dialogue and UI presentation, independent of quest business rules.",
+  "unity": "6000.5",
+  "dependencies": {
+    "com.demonviglu.ui": "0.1.0",
+    "com.demonviglu.dialogue": "0.2.0"
+  }
+}

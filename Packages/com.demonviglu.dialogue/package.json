@@ -1,0 +1,8 @@
+{
+  "name": "com.demonviglu.dialogue",
+  "version": "0.2.0",
+  "displayName": "DemonViglu Dialogue",
+  "description": "Inspector-authored characters, dialogue branches and a scene-ready uGUI player.",
+  "unity": "6000.0",
+  "dependencies": { "com.unity.ugui": "2.5.0", "com.unity.inputsystem": "1.19.0" }
+}

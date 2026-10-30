@@ -103,6 +103,15 @@ namespace DemonWeave.Messenger.Editor
                 Check(!host.Run.ReportRouteEvent("missing-envoy", "rescue", "negotiate", 1, new QuestWorldEvent(Guid.NewGuid(), "envoy", "interacted")), "old route callback rejected");
                 Click(host, "tunnel"); Handover(host);
             });
+            Variant("edited-investigation-policy", false, false, host => {
+                host.Close();
+                host.Book.Quests[0].Stages.Single(s => s.Id == "investigate").Objectives.RemoveAll(o => o.Id == "clue-b");
+                host.StartScenario(); Click(host, "contact"); Click(host, "clue-a");
+                Check(host.ReadFact("clue-b", "found") == false && host.Run.Find("missing-envoy").Stage("rescue").State == QuestStatus.Active, "author changed investigation policy");
+                host.SelectRoute("missing-envoy", "rescue", "negotiate");
+                Check(host.NegotiationRejected && host.Coins == 8, "behaviour does not secretly require removed clue");
+                host.SelectRoute("missing-envoy", "rescue", "infiltrate"); Click(host, "tunnel"); Handover(host);
+            });
             Check(service.ActiveRunCount == 0, "closed worlds release all runs");
         }
         private static void Click(MessengerScenario host, string role) => host.Interact(host.Bindings.Single(b => b.Role == role).Entity);

@@ -1,0 +1,4 @@
+{
+  "name": "DemonViglu.Dialogue.Unity",
+  "references": ["DemonViglu.Dialogue", "Unity.ugui"]
+}

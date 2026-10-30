@@ -79,7 +79,7 @@ namespace DemonWeave.Messenger
             var bindings = new QuestBindings(Bindings); bindings.Require("guard"); bindings.Require("envoy"); bindings.Require("contact");
             var catalog = new CapabilityCatalog();
             catalog.Register<NegotiationParameters>("messenger.negotiate", "与守卫谈判", p => p.Deposit < 0 || p.Deposit > 10 ? "押金必须在 0–10 之间。" : "", p => {
-                if (!LocationKnown || GuardHostile || !EnvoyAlive) return new ActionResult(false, "Negotiation is not possible in the actual world.");
+                if (GuardHostile || !EnvoyAlive || !Envoy || !SafePoint) return new ActionResult(false, "Negotiation is not possible in the actual world.");
                 if (Coins < p.Deposit) return new ActionResult(false, "Not enough coins for the configured deposit.");
                 Coins -= p.Deposit; // Already-paid costs survive a later route change.
                 NegotiationRejected = !NegotiationSucceeds;
@@ -87,7 +87,7 @@ namespace DemonWeave.Messenger
                 return new ActionResult(true, NegotiationRejected ? "The guard refused and kept the deposit. Try the tunnel route." : "Guard released the envoy to safety.");
             }, typeof(MessengerScenario));
             catalog.Register<NoParameters>("messenger.make-hostile", "潜入暴露：守卫转为敌对", _ => "", _ => {
-                if (!LocationKnown) return new ActionResult(false, "Location not confirmed.");
+                if (!EnvoyAlive || !Envoy) return new ActionResult(false, "The envoy is unavailable.");
                 GuardHostile = true; Tint(bindings.Require("guard"), new Color(.85f, .08f, .06f));
                 return new ActionResult(true, "The guard spotted your plan and turned hostile. Use the tunnel to rescue the envoy.");
             }, typeof(MessengerScenario));
@@ -99,6 +99,21 @@ namespace DemonWeave.Messenger
             bool accepted = Run.ChooseRoute(quest, stage, route, "player-choice", out var reason);
             Feedback = accepted ? "Route selected: " + route : "Choice refused: " + reason;
             Record(Feedback); Pump(); return accepted;
+        }
+        public bool ConfirmAssignment(bool handover)
+        {
+            if (Run == null || Run.IsClosed || !Contact) return false;
+            if (handover)
+            {
+                if (ReadFact("envoy", "safe") != true || ReadFact("envoy", "handed-over") == true) return false;
+                Envoy.SetParent(Contact, true); Envoy.localPosition = new Vector3(1.2f, 0, 0); Feedback = "Envoy safely handed over.";
+            }
+            else
+            {
+                if (Accepted) return false;
+                Accepted = true; Feedback = "Find the envoy and bring them back alive.";
+            }
+            Record(Feedback); Run.Refresh(); Pump(); return true;
         }
         public void Interact(QuestEntity entity)
         {
@@ -115,7 +130,7 @@ namespace DemonWeave.Messenger
             { clues.Add(role); Tint(entity, new Color(.1f, .7f, .4f)); Feedback = "Clue confirmed. Location " + (LocationKnown ? "known." : "still uncertain."); }
             else if (role == "tunnel")
             {
-                if (!LocationKnown || !GuardHostile || !EnvoyAlive) Feedback = "The infiltration plan has not created an opening.";
+                if (!GuardHostile || !EnvoyAlive || !Envoy || !SafePoint) Feedback = "The infiltration plan has not created an opening.";
                 else { Envoy.position = SafePoint.position; Feedback = "Envoy rescued to the safe area. Handover is still required."; }
             }
             else Feedback = "Choose your rescue route in the journal.";

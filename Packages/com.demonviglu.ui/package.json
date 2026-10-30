@@ -1,0 +1,12 @@
+{
+  "name": "com.demonviglu.ui",
+  "version": "0.1.0",
+  "displayName": "DemonViglu UI",
+  "description": "Explicit UI views, catalog, navigation and focus without gameplay dependencies.",
+  "unity": "6000.5",
+  "dependencies": {
+    "com.demonviglu.startup": "0.1.0",
+    "com.unity.ugui": "2.5.0",
+    "com.unity.inputsystem": "1.19.0"
+  }
+}

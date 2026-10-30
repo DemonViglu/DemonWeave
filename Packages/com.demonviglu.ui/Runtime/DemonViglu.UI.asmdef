@@ -1,0 +1,5 @@
+{
+  "name": "DemonViglu.UI",
+  "rootNamespace": "DemonViglu.UI",
+  "references": ["Unity.ugui", "Unity.InputSystem"]
+}

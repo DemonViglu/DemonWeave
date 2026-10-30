@@ -69,11 +69,25 @@ namespace DemonWeave.Quests
         }
         public bool ChooseRoute(string questId, string stageId, string routeId, string source, out string rejection)
         {
+            if (string.IsNullOrWhiteSpace(source)) { rejection = "Choice source is required."; return false; }
+            if (!CanChooseRoute(questId, stageId, routeId, out rejection)) return false;
+            var owner = Find(questId); var stage = owner.Stage(stageId);
+            if (stage.SelectedRouteId == routeId) return true;
+            var route = stage.Definition.Routes.Single(r => r.Id == routeId);
+            var from = stage.SelectedRouteId;
+            if (!string.IsNullOrEmpty(from)) stage.ClosedRoutes.Add(from);
+            stage.SelectedRouteId = routeId; stage.RouteRevision = checked(stage.RouteRevision + 1);
+            stage.Choices.Add(new RouteChoice(stage.RouteRevision, from, routeId, source));
+            StageNotice(owner, stage, QuestNoticeKind.RouteChoice, from + " -> " + routeId + " / " + source, routeId);
+            StageExec(owner, stage, route.SelectedExec, QuestPhase.Begin, routeId);
+            Refresh(); return true;
+        }
+        public bool CanChooseRoute(string questId, string stageId, string routeId, out string rejection)
+        {
             rejection = "";
             var owner = Find(questId); var stage = owner?.Stage(stageId);
             if (IsClosed || owner?.State != QuestStatus.Active || stage?.State != QuestStatus.Active)
             { rejection = "Quest/stage is not active."; return false; }
-            if (string.IsNullOrWhiteSpace(source)) { rejection = "Choice source is required."; return false; }
             var route = stage.Definition.Routes.FirstOrDefault(r => r.Id == routeId);
             if (route == null) { rejection = "Unknown route."; return false; }
             if (stage.SelectedRouteId == routeId) return true; // Idempotent selection never repeats effects.
@@ -82,12 +96,7 @@ namespace DemonWeave.Quests
             var from = stage.SelectedRouteId;
             if (!string.IsNullOrEmpty(from) && !stage.Definition.Switches.Any(s => s.From == from && s.To == routeId && Evaluate(s.When, owner)))
             { rejection = "No permitted route switch under current conditions."; return false; }
-            if (!string.IsNullOrEmpty(from)) stage.ClosedRoutes.Add(from);
-            stage.SelectedRouteId = routeId; stage.RouteRevision = checked(stage.RouteRevision + 1);
-            stage.Choices.Add(new RouteChoice(stage.RouteRevision, from, routeId, source));
-            StageNotice(owner, stage, QuestNoticeKind.RouteChoice, from + " -> " + routeId + " / " + source, routeId);
-            StageExec(owner, stage, route.SelectedExec, QuestPhase.Begin, routeId);
-            Refresh(); return true;
+            return true;
         }
         // Action results correlated to a selected route cannot leak from an earlier selection into the new one.
         // Actual global world changes remain facts; this is not a world rollback mechanism.

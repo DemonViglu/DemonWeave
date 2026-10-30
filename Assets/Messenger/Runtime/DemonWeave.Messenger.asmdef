@@ -1,1 +1,1 @@
-{"name":"DemonWeave.Messenger","references":["DemonWeave.Core","DemonWeave.Unity","DemonWeave.Startup","DemonViglu.Startup.Core","DemonViglu.Startup.Unity"]}
+{"name":"DemonWeave.Messenger","references":["DemonWeave.Core","DemonWeave.Unity","DemonWeave.Startup","DemonViglu.Startup.Core","DemonViglu.Startup.Unity","DemonViglu.UI","DemonViglu.Dialogue","DemonViglu.Dialogue.Unity","DemonWeave.Presentation","Unity.ugui","Unity.InputSystem"]}

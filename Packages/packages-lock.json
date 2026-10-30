@@ -9,6 +9,24 @@
         "com.unity.nuget.newtonsoft-json": "3.2.2"
       }
     },
+    "com.demon.weave.presentation": {
+      "version": "file:com.demon.weave.presentation",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {
+        "com.demonviglu.ui": "0.1.0",
+        "com.demonviglu.dialogue": "0.2.0"
+      }
+    },
+    "com.demonviglu.dialogue": {
+      "version": "file:com.demonviglu.dialogue",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {
+        "com.unity.ugui": "2.5.0",
+        "com.unity.inputsystem": "1.19.0"
+      }
+    },
     "com.demonviglu.startup": {
       "version": "file:com.demonviglu.startup",
       "depth": 0,
@@ -18,12 +36,43 @@
         "com.unity.modules.physics": "1.0.0"
       }
     },
+    "com.demonviglu.ui": {
+      "version": "file:com.demonviglu.ui",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {
+        "com.demonviglu.startup": "0.1.0",
+        "com.unity.ugui": "2.5.0",
+        "com.unity.inputsystem": "1.19.0"
+      }
+    },
+    "com.unity.inputsystem": {
+      "version": "1.19.0",
+      "depth": 1,
+      "source": "registry",
+      "dependencies": {
+        "com.unity.modules.uielements": "1.0.0"
+      },
+      "url": "https://packages.unity.com"
+    },
     "com.unity.nuget.newtonsoft-json": {
       "version": "3.2.2",
       "depth": 0,
       "source": "registry",
       "dependencies": {},
       "url": "https://packages.unity.com"
+    },
+    "com.unity.ugui": {
+      "version": "2.5.0",
+      "depth": 1,
+      "source": "builtin",
+      "dependencies": {
+        "com.unity.modules.ui": "1.0.0",
+        "com.unity.modules.imgui": "1.0.0",
+        "com.unity.modules.audio": "1.0.0",
+        "com.unity.modules.physics2d": "1.0.0",
+        "com.unity.modules.physics": "1.0.0"
+      }
     },
     "com.unity.modules.animation": {
       "version": "1.0.0",
@@ -64,6 +113,20 @@
     "com.unity.modules.physics": {
       "version": "1.0.0",
       "depth": 0,
+      "source": "builtin",
+      "dependencies": {}
+    },
+    "com.unity.modules.physics2d": {
+      "version": "1.0.0",
+      "depth": 2,
+      "source": "builtin",
+      "dependencies": {
+        "com.unity.modules.physicscore2d": "1.0.0"
+      }
+    },
+    "com.unity.modules.physicscore2d": {
+      "version": "1.0.0",
+      "depth": 3,
       "source": "builtin",
       "dependencies": {}
     },
