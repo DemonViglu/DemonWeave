@@ -43,7 +43,7 @@ namespace DemonViglu.Startup
             return found;
         }
 
-        internal void Freeze() { Check(); frozen = true; }
+        public void Freeze() { Check(); frozen = true; }
         private void Check() { if (disposed) throw new ObjectDisposedException(nameof(ServiceRegistry)); }
 
         public void Dispose()

@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6222f837aca5fdd4883c20b12ba25327, type: 3}
+  m_Name: UiCatalog
+  m_EditorClassIdentifier: DemonViglu.UI::DemonViglu.UI.UiCatalog
+  _entries:
+  - _uiId: rescue.dialogue
+    _prefab: {fileID: 8806633421890877462, guid: 5bfc26b623534b74ba39478bbb7e5166, type: 3}
+    _layer: 2
+    _modal: 1
+    _blocksInput: 1
+    _stackPolicy: 1

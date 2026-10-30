@@ -1,0 +1,1 @@
+{"name":"DemonWeave.AreaRescue","references":["DemonWeave.Core","DemonWeave.Unity","DemonWeave.World","DemonWeave.Startup","DemonViglu.Startup.Core","DemonViglu.Startup.Unity","DemonViglu.UI","DemonViglu.Dialogue","DemonViglu.Dialogue.Unity","DemonWeave.Presentation","Unity.InputSystem","Unity.Timeline","Unity.ugui"]}

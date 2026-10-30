@@ -1,0 +1,6 @@
+{
+  "name": "DemonViglu.Startup.Sample",
+  "rootNamespace": "DemonViglu.Startup.Sample",
+  "references": ["DemonViglu.Startup.Core", "DemonViglu.Startup.Unity"],
+  "autoReferenced": false
+}

@@ -1,1 +1,0 @@
-{"name":"DemonWeave.Lighthouse.Editor","references":["DemonWeave.Core","DemonWeave.Unity","DemonWeave.Startup","DemonViglu.Startup.Core","DemonViglu.Startup.Unity","DemonWeave.Lighthouse","DemonWeave.Editor"],"includePlatforms":["Editor"]}

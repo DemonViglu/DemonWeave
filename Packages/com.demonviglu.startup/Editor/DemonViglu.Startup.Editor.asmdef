@@ -1,0 +1,6 @@
+{
+  "name": "DemonViglu.Startup.Editor",
+  "rootNamespace": "DemonViglu.Startup.Editor",
+  "references": ["DemonViglu.Startup.Core", "DemonViglu.Startup.Unity", "DemonViglu.Startup.Sample"],
+  "includePlatforms": ["Editor"]
+}

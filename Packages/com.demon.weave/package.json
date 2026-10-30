@@ -5,7 +5,9 @@
   "description": "Small local quest lifecycle and human authoring adapter.",
   "unity": "6000.5",
   "dependencies": {
-    "com.demonviglu.startup": "0.1.0",
+    "com.demonviglu.ui": "0.1.0",
+    "com.demonviglu.dialogue": "0.2.0",
+    "com.unity.timeline": "1.8.12",
     "com.unity.nuget.newtonsoft-json": "3.2.2"
   }
 }

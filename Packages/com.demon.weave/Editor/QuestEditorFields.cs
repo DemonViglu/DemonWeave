@@ -150,8 +150,9 @@ namespace DemonWeave.Editor
                 else parent.Add(new Label(label + "：此类型尚无参数控件。"));
             }
             var usages = book.Quests.Where(q => QuestAuthoringChecks.Executions(q).Any(x => x.CapabilityId == exec.CapabilityId)).Select(q => q.Title);
-            parent.Add(new Label("引用任务：" + string.Join("、", usages)) { style = { whiteSpace = WhiteSpace.Normal, fontSize = 11, marginTop = 4 } });
-            parent.Add(new Button(() => {
+            var implementation = new Foldout { text = "实现与引用", value = false }; parent.Add(implementation);
+            implementation.Add(new Label("引用任务：" + string.Join("、", usages)) { style = { whiteSpace = WhiteSpace.Normal, fontSize = 11, marginTop = 4 } });
+            implementation.Add(new Button(() => {
                 var name = descriptor.ImplementationType?.Name;
                 if (name == null) return;
                 foreach (var guid in AssetDatabase.FindAssets(name + " t:MonoScript"))

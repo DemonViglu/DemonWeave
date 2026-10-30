@@ -4,6 +4,12 @@ using DemonWeave.Quests;
 
 namespace DemonWeave.Unity
 {
+    public interface IQuestRecoveryAuthoring
+    {
+        string RecoveryTrigger { get; }
+        string RecoveryOutcome { get; }
+        string RecoveryProperty { get; }
+    }
     public readonly struct WorldSignal
     {
         public string Role { get; }

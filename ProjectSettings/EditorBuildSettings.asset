@@ -6,6 +6,6 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/Lighthouse/Scenes/BeforeTheStorm.unity
-    guid: 42d437612cf28314389669060602454c
+    path: Assets/AreaRescue/Scenes/CourtyardRescue.unity
+    guid: fd3100dcbb89016418d74d1cb7e0f6f4
   m_configObjects: {}
