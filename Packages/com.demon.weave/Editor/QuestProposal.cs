@@ -26,6 +26,7 @@ namespace DemonWeave.Editor
         [JsonProperty(Required = Required.Always)] public string Op;
         [JsonProperty(Required = Required.Always)] public string QuestId;
         public string Field;
+        public string StageId;
         public JToken Value;
     }
     public sealed class PreparedQuestChange
@@ -39,7 +40,7 @@ namespace DemonWeave.Editor
     public static class QuestProposalReview
     {
         private static readonly HashSet<string> Fields = new HashSet<string>(new[] {
-            "Title", "ParentId", "Accept", "FinishCombination", "FailCombination", "Finish", "Fail", "BeginExec", "FinishExec", "FailExec", "CancelChildrenOnEnd"
+            "Title", "ParentId", "Accept", "FinishCombination", "FailCombination", "Finish", "Fail", "BeginExec", "FinishExec", "FailExec", "CancelChildrenOnEnd", "Stages"
         }, StringComparer.Ordinal);
         public static string Revision(QuestBookAsset book) => Hash(book.Id + "\n" + book.Title + "\n" + book.ExportDefinitions());
         private static string Bindings(IQuestAuthoringHost host) => Hash(string.Join("\n", host.BindingEntries.OrderBy(b => b.Role).Select(b => b.Role + ":" + (b.Entity ? b.Entity.Id + ":" + b.Entity.GetEntityId() : "missing"))));
@@ -67,20 +68,32 @@ namespace DemonWeave.Editor
                 var path = "quests[" + operation.QuestId + "]";
                 if (operation.Op == "add")
                 {
+                    if (!string.IsNullOrEmpty(operation.StageId)) throw new ArgumentException("StageId only applies to set-stage.");
                     if (quest != null || operation.Value is not JObject value || (string)value["Id"] != operation.QuestId || !string.IsNullOrEmpty(operation.Field))
                         throw new ArgumentException(path + ": add 必须提供新任务且不能覆盖既有 ID。 ");
                     array.Add(value.DeepClone()); diff.AppendLine("+ " + path + "\n" + value.ToString(Formatting.Indented));
                 }
                 else if (operation.Op == "remove")
                 {
+                    if (!string.IsNullOrEmpty(operation.StageId)) throw new ArgumentException("StageId only applies to set-stage.");
                     if (quest == null || !string.IsNullOrEmpty(operation.Field) || operation.Value != null) throw new ArgumentException(path + ": remove 操作无效。 ");
                     diff.AppendLine("- " + path + "\n" + quest.ToString(Formatting.Indented)); quest.Remove();
                 }
                 else if (operation.Op == "set")
                 {
+                    if (!string.IsNullOrEmpty(operation.StageId)) throw new ArgumentException("StageId only applies to set-stage.");
                     if (quest == null || !Fields.Contains(operation.Field ?? "") || operation.Value == null) throw new ArgumentException(path + ": set 需要已有任务和允许的字段。 ");
                     diff.AppendLine("~ " + path + "." + operation.Field + "\n之前：" + quest[operation.Field]?.ToString(Formatting.Indented) + "\n之后：" + operation.Value.ToString(Formatting.Indented));
                     quest[operation.Field] = operation.Value.DeepClone();
+                }
+                else if (operation.Op == "set-stage")
+                {
+                    var allowed = new[] { "Title", "Required", "After", "OpenWhen", "Objectives", "Completion", "BeginExec", "FinishExec", "Routes", "Switches" };
+                    var stage = (quest?["Stages"] as JArray)?.OfType<JObject>().SingleOrDefault(s => (string)s["Id"] == operation.StageId);
+                    if (stage == null || string.IsNullOrWhiteSpace(operation.StageId) || !allowed.Contains(operation.Field) || operation.Value == null)
+                        throw new ArgumentException(path + ": set-stage requires an existing stage ID and allowed field.");
+                    diff.AppendLine("~ " + path + ".stages[" + operation.StageId + "]." + operation.Field + "\n之前：" + stage[operation.Field] + "\n之后：" + operation.Value);
+                    stage[operation.Field] = operation.Value.DeepClone();
                 }
                 else throw new ArgumentException("未知操作：" + operation.Op);
             }

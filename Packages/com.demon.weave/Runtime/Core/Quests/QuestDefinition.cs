@@ -7,8 +7,8 @@ namespace DemonWeave.Quests
     // Local model names; not a Genshin wire enum or reconstructed server policy.
     public enum QuestStatus { Waiting, Active, Completed, Failed, Cancelled }
     public enum RuleCombination { All, Any }
-    public enum ConditionKind { Fact, QuestState, All, Any }
-    public enum ContentKind { EventCount, Fact, QuestState }
+    public enum ConditionKind { Fact, QuestState, All, Any, StageState }
+    public enum ContentKind { EventCount, Fact, QuestState, StageState }
     public enum QuestPhase { Begin, Finish, Fail }
 
     [Serializable]
@@ -62,13 +62,15 @@ namespace DemonWeave.Quests
         public List<QuestExec> BeginExec = new List<QuestExec>();
         public List<QuestExec> FinishExec = new List<QuestExec>();
         public List<QuestExec> FailExec = new List<QuestExec>();
+        public List<QuestStage> Stages = new List<QuestStage>();
         // Explicit local content policy, never inferred from ParentId or visual order.
         public bool CancelChildrenOnEnd;
         public QuestDefinition Copy() => new QuestDefinition { Id = Id, Title = Title, ParentId = ParentId,
             Accept = Accept?.Copy(), FinishCombination = FinishCombination, FailCombination = FailCombination,
             Finish = Finish?.Select(x => x?.Copy()).ToList(), Fail = Fail?.Select(x => x?.Copy()).ToList(),
             BeginExec = BeginExec?.Select(x => x?.Copy()).ToList(), FinishExec = FinishExec?.Select(x => x?.Copy()).ToList(),
-            FailExec = FailExec?.Select(x => x?.Copy()).ToList(), CancelChildrenOnEnd = CancelChildrenOnEnd };
+            FailExec = FailExec?.Select(x => x?.Copy()).ToList(), CancelChildrenOnEnd = CancelChildrenOnEnd,
+            Stages = Stages?.Select(x => x?.Copy()).ToList() };
     }
 
     public interface IQuestWorld

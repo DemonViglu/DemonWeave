@@ -18,10 +18,10 @@ namespace DemonWeave.Editor
         {
             if (condition == null || depth > 16) { parent.Add(new HelpBox("条件为空或嵌套过深。", HelpBoxMessageType.Error)); return; }
             var group = new VisualElement { style = { paddingLeft = 10, borderLeftWidth = 2, borderLeftColor = new Color(.25f, .4f, .55f), marginBottom = 10 } }; parent.Add(group);
-            var kinds = new List<string> { "全部满足（AND）", "任一满足（OR）", "任务状态", "世界事实" };
-            var kind = condition.Kind == ConditionKind.All ? kinds[0] : condition.Kind == ConditionKind.Any ? kinds[1] : condition.Kind == ConditionKind.QuestState ? kinds[2] : kinds[3];
+            var kinds = new List<string> { "全部满足（AND）", "任一满足（OR）", "任务状态", "世界事实", "内部阶段状态（接取条件不可用）" };
+            var kind = condition.Kind == ConditionKind.All ? kinds[0] : condition.Kind == ConditionKind.Any ? kinds[1] : condition.Kind == ConditionKind.QuestState ? kinds[2] : condition.Kind == ConditionKind.StageState ? kinds[4] : kinds[3];
             Choice(group, "条件类型", kinds, kind, value => Edit("改变条件类型", () => {
-                var nextKind = value == kinds[0] ? ConditionKind.All : value == kinds[1] ? ConditionKind.Any : value == kinds[2] ? ConditionKind.QuestState : ConditionKind.Fact;
+                var nextKind = value == kinds[0] ? ConditionKind.All : value == kinds[1] ? ConditionKind.Any : value == kinds[2] ? ConditionKind.QuestState : value == kinds[4] ? ConditionKind.StageState : ConditionKind.Fact;
                 if ((condition.Kind == ConditionKind.All || condition.Kind == ConditionKind.Any) && (nextKind == ConditionKind.All || nextKind == ConditionKind.Any)) condition.Kind = nextKind;
                 else replace(new QuestCondition { Kind = nextKind });
             }));
@@ -39,6 +39,11 @@ namespace DemonWeave.Editor
             {
                 QuestChoice(group, "前置任务", condition.Subject, value => Edit("修改前置任务", () => condition.Subject = value), false, selectedId);
                 StateChoice(group, condition.State, value => Edit("修改前置状态", () => condition.State = value));
+            }
+            else if (condition.Kind == ConditionKind.StageState)
+            {
+                StageChoice(group, "内部阶段", condition.Subject, value => Edit("修改阶段引用", () => condition.Subject = value));
+                StateChoice(group, condition.State, value => Edit("修改阶段状态", () => condition.State = value));
             }
             else
             {
@@ -58,17 +63,20 @@ namespace DemonWeave.Editor
         private void BuildContents(VisualElement parent, QuestDefinition quest, bool failure)
         {
             var list = failure ? quest.Fail : quest.Finish;
-            var foldout = new Foldout { text = failure ? "失败要求 · Fail Content" : "完成要求 · Finish Content", value = !failure }; parent.Add(foldout);
             var join = failure ? quest.FailCombination : quest.FinishCombination;
-            Choice(foldout, "组合", new List<string> { "全部满足", "任一满足" }, join == RuleCombination.All ? "全部满足" : "任一满足", value => Edit("修改目标组合", () => {
-                if (failure) quest.FailCombination = value == "全部满足" ? RuleCombination.All : RuleCombination.Any;
-                else quest.FinishCombination = value == "全部满足" ? RuleCombination.All : RuleCombination.Any;
-            }));
+            BuildObjectives(parent, list, join, value => { if (failure) quest.FailCombination = value; else quest.FinishCombination = value; },
+                failure ? "失败要求" : quest.Stages.Count > 0 ? "额外完成约束（可留空）" : "完成目标");
+        }
+        private void BuildObjectives(VisualElement parent, List<QuestContent> list, RuleCombination join, Action<RuleCombination> change, string title)
+        {
+            var foldout = new Foldout { text = title, value = true }; parent.Add(foldout);
+            Choice(foldout, "目标组合", new List<string> { "全部满足", "任一满足" }, join == RuleCombination.All ? "全部满足" : "任一满足",
+                value => Edit("修改目标组合", () => change(value == "全部满足" ? RuleCombination.All : RuleCombination.Any)));
             foreach (var content in list.ToArray())
             {
                 var row = new VisualElement { style = { marginTop = 8, marginBottom = 12, paddingLeft = 10, borderLeftWidth = 2, borderLeftColor = new Color(.3f, .4f, .35f) } }; foldout.Add(row);
                 Text(row, "要求说明", content.Label, value => Edit("修改要求说明", () => content.Label = value));
-                var names = new List<string> { "事件次数", "当前事实", "任务状态" };
+                var names = new List<string> { "事件次数", "当前事实", "任务状态", "内部阶段状态" };
                 Choice(row, "判定类型", names, names[(int)content.Kind], value => Edit("修改完成判定", () => {
                     content.Kind = (ContentKind)names.IndexOf(value); content.Subject = ""; content.Key = ""; content.Required = 1;
                 }));
@@ -76,6 +84,11 @@ namespace DemonWeave.Editor
                 {
                     QuestChoice(row, "目标任务", content.Subject, value => Edit("修改目标任务", () => content.Subject = value));
                     StateChoice(row, content.State, value => Edit("修改目标状态", () => content.State = value));
+                }
+                else if (content.Kind == ContentKind.StageState)
+                {
+                    StageChoice(row, "内部阶段", content.Subject, value => Edit("修改阶段引用", () => content.Subject = value));
+                    StateChoice(row, content.State, value => Edit("修改阶段状态", () => content.State = value));
                 }
                 else
                 {
@@ -125,7 +138,7 @@ namespace DemonWeave.Editor
             foreach (var field in descriptor.ParametersType.GetFields(BindingFlags.Public | BindingFlags.Instance))
             {
                 var attribute = field.GetCustomAttribute<CapabilityParameterAttribute>(); var label = attribute?.Label ?? field.Name;
-                var token = parameters[field.Name];
+                var token = parameters[field.Name] ?? JToken.FromObject(field.GetValue(Activator.CreateInstance(descriptor.ParametersType)) ?? "");
                 if (attribute?.EntityRole == true) RoleChoice(parent, label, token?.Value<string>() ?? "", value => Set(field.Name, value));
                 else if (field.FieldType == typeof(float))
                 { var control = new FloatField(label) { value = token?.Value<float>() ?? 0, isDelayed = true }; control.RegisterValueChangedCallback(e => Set(field.Name, e.newValue)); parent.Add(control); }
@@ -136,7 +149,7 @@ namespace DemonWeave.Editor
                 else if (field.FieldType == typeof(string)) Text(parent, label, token?.Value<string>() ?? "", value => Set(field.Name, value));
                 else parent.Add(new Label(label + "：此类型尚无参数控件。"));
             }
-            var usages = book.Quests.Where(q => q.BeginExec.Concat(q.FinishExec).Concat(q.FailExec).Any(x => x.CapabilityId == exec.CapabilityId)).Select(q => q.Title);
+            var usages = book.Quests.Where(q => QuestAuthoringChecks.Executions(q).Any(x => x.CapabilityId == exec.CapabilityId)).Select(q => q.Title);
             parent.Add(new Label("引用任务：" + string.Join("、", usages)) { style = { whiteSpace = WhiteSpace.Normal, fontSize = 11, marginTop = 4 } });
             parent.Add(new Button(() => {
                 var name = descriptor.ImplementationType?.Name;

@@ -4,7 +4,7 @@ using System.Linq;
 
 namespace DemonWeave.Quests
 {
-    public enum QuestNoticeKind { State, Progress, Exec, Diagnostic }
+    public enum QuestNoticeKind { State, Progress, Exec, Diagnostic, RouteChoice }
     public sealed class QuestNotice
     {
         public Guid RunId { get; }
@@ -14,15 +14,21 @@ namespace DemonWeave.Quests
         public string Detail { get; }
         public QuestPhase Phase { get; }
         public QuestExec Execution { get; }
+        public string StageId { get; }
+        public string RouteId { get; }
+        public long RouteRevision { get; }
         internal QuestNotice(Guid run, string quest, QuestNoticeKind kind, QuestStatus state, string detail,
-            QuestPhase phase = default, QuestExec exec = null)
-        { RunId = run; QuestId = quest; Kind = kind; State = state; Detail = detail; Phase = phase; Execution = exec?.Copy(); }
+            QuestPhase phase = default, QuestExec exec = null, string stage = "", string route = "", long routeRevision = 0)
+        { RunId = run; QuestId = quest; Kind = kind; State = state; Detail = detail; Phase = phase; Execution = exec?.Copy();
+            StageId = stage; RouteId = route; RouteRevision = routeRevision; }
     }
 
     public sealed class QuestInstance
     {
         internal readonly QuestDefinition Definition;
         internal readonly Dictionary<string, int> Counts = new Dictionary<string, int>(StringComparer.Ordinal);
+        internal readonly Dictionary<string, QuestStageInstance> StageMap;
+        public IReadOnlyList<QuestStageInstance> Stages { get; }
         public Guid Id { get; } = Guid.NewGuid();
         public string DefinitionId => Definition.Id;
         public string Title => Definition.Title;
@@ -32,9 +38,12 @@ namespace DemonWeave.Quests
         {
             Definition = definition;
             foreach (var content in definition.Finish.Concat(definition.Fail)) Counts.Add(content.Id, 0);
+            StageMap = definition.Stages.ToDictionary(s => s.Id, s => new QuestStageInstance(s), StringComparer.Ordinal);
+            Stages = Array.AsReadOnly(definition.Stages.Select(s => StageMap[s.Id]).ToArray());
         }
         public int Progress(string contentId) => Counts.TryGetValue(contentId, out var count) ? count : 0;
         public QuestDefinition DefinitionSnapshot() => Definition.Copy();
+        public QuestStageInstance Stage(string id) => id != null && StageMap.TryGetValue(id, out var stage) ? stage : null;
     }
 
     /// <summary>
@@ -42,7 +51,7 @@ namespace DemonWeave.Quests
     /// Re-evaluation/terminal conflict rules here are our local policy, not recovered Genshin algorithms.
     /// Host calls Refresh after world changes, and handles queued Exec outside the evaluation stack.
     /// </summary>
-    public sealed class QuestRun : IDisposable
+    public sealed partial class QuestRun : IDisposable
     {
         private readonly Dictionary<string, QuestInstance> instances;
         private readonly QuestInstance[] ordered;
@@ -78,13 +87,16 @@ namespace DemonWeave.Quests
                 {
                     if (instance.State == QuestStatus.Waiting)
                     {
-                        if (Evaluate(instance.Definition.Accept)) { Commit(instance, QuestStatus.Active, "Accept conditions satisfied"); changed = true; }
+                        if (Evaluate(instance.Definition.Accept, instance)) { Commit(instance, QuestStatus.Active, "Accept conditions satisfied"); changed = true; }
                         continue;
                     }
                     if (instance.State != QuestStatus.Active) continue;
                     RefreshContents(instance);
                     bool failed = Satisfied(instance, instance.Definition.Fail, instance.Definition.FailCombination);
-                    bool finished = Satisfied(instance, instance.Definition.Finish, instance.Definition.FinishCombination);
+                    if (!failed)
+                    { changed |= RefreshStages(instance); RefreshContents(instance); failed = Satisfied(instance, instance.Definition.Fail, instance.Definition.FailCombination); }
+                    bool finished = (instance.Definition.Finish.Count == 0 || Satisfied(instance, instance.Definition.Finish, instance.Definition.FinishCombination))
+                        && instance.Stages.Where(s => s.Definition.Required).All(s => s.State == QuestStatus.Completed);
                     if (!failed && !finished) continue;
                     // Explicit local failure precedence; trace the conflict instead of hiding the policy.
                     if (failed && finished) Emit(instance, QuestNoticeKind.Diagnostic, "Finish and fail both satisfied; configured local policy gives fail precedence.");
@@ -103,6 +115,8 @@ namespace DemonWeave.Quests
             bool matched = false;
             // Only tasks active BEFORE this event consume it. Successors never inherit the triggering event.
             foreach (var instance in ordered.Where(x => x.State == QuestStatus.Active))
+            {
+                matched |= ReportToStages(instance, occurrence);
                 foreach (var content in instance.Definition.Finish.Concat(instance.Definition.Fail))
                 {
                     if (content.Kind != ContentKind.EventCount || content.Subject != occurrence.Subject || content.Key != occurrence.Key) continue;
@@ -111,16 +125,18 @@ namespace DemonWeave.Quests
                     ++instance.Counts[content.Id];
                     Emit(instance, QuestNoticeKind.Progress, content.Id + ": " + instance.Counts[content.Id] + "/" + content.Required);
                 }
+            }
             Refresh(); return matched;
         }
 
-        private bool Evaluate(QuestCondition condition)
+        private bool Evaluate(QuestCondition condition, QuestInstance owner = null)
         {
             switch (condition.Kind)
             {
-                case ConditionKind.All: return condition.Children.All(Evaluate);
-                case ConditionKind.Any: return condition.Children.Any(Evaluate);
+                case ConditionKind.All: return condition.Children.All(c => Evaluate(c, owner));
+                case ConditionKind.Any: return condition.Children.Any(c => Evaluate(c, owner));
                 case ConditionKind.QuestState: return Find(condition.Subject)?.State == condition.State;
+                case ConditionKind.StageState: return owner?.Stage(condition.Subject)?.State == condition.State;
                 case ConditionKind.Fact: return world.ReadFact(condition.Subject, condition.Key) is bool actual && actual == condition.Expected;
                 default: throw new InvalidOperationException("Condition was not validated.");
             }
@@ -131,6 +147,7 @@ namespace DemonWeave.Quests
             {
                 if (content.Kind == ContentKind.EventCount) continue;
                 bool satisfied = content.Kind == ContentKind.QuestState ? Find(content.Subject)?.State == content.State
+                    : content.Kind == ContentKind.StageState ? instance.Stage(content.Subject)?.State == content.State
                     : world.ReadFact(content.Subject, content.Key) is bool actual && actual == content.Expected;
                 int value = satisfied ? 1 : 0;
                 if (instance.Counts[content.Id] == value) continue;
@@ -147,6 +164,7 @@ namespace DemonWeave.Quests
         private void Commit(QuestInstance instance, QuestStatus state, string reason)
         {
             instance.State = state; Emit(instance, QuestNoticeKind.State, reason);
+            if (state != QuestStatus.Active) CloseStages(instance, reason);
             var phase = state == QuestStatus.Active ? QuestPhase.Begin : state == QuestStatus.Completed ? QuestPhase.Finish : QuestPhase.Fail;
             var exec = phase == QuestPhase.Begin ? instance.Definition.BeginExec : phase == QuestPhase.Finish ? instance.Definition.FinishExec : instance.Definition.FailExec;
             if (state != QuestStatus.Cancelled)
@@ -157,7 +175,7 @@ namespace DemonWeave.Quests
         private void CancelTree(QuestInstance instance, string reason)
         {
             if (instance.State == QuestStatus.Waiting || instance.State == QuestStatus.Active)
-            { instance.State = QuestStatus.Cancelled; Emit(instance, QuestNoticeKind.State, reason); }
+            { instance.State = QuestStatus.Cancelled; CloseStages(instance, reason); Emit(instance, QuestNoticeKind.State, reason); }
             foreach (var child in ordered.Where(x => x.ParentId == instance.DefinitionId)) CancelTree(child, reason);
         }
         public bool MayExecute(QuestNotice notice)
@@ -165,6 +183,7 @@ namespace DemonWeave.Quests
             if (IsClosed || notice == null || notice.RunId != Id || notice.Kind != QuestNoticeKind.Exec) return false;
             var instance = Find(notice.QuestId);
             if (instance == null || instance.State == QuestStatus.Cancelled) return false;
+            if (!string.IsNullOrEmpty(notice.StageId)) return MayExecuteStage(instance, notice);
             // Begin effects whose task has already ended are deliberately skipped, not revived later.
             return notice.Phase == QuestPhase.Begin ? instance.State == QuestStatus.Active
                 : notice.Phase == QuestPhase.Finish ? instance.State == QuestStatus.Completed : instance.State == QuestStatus.Failed;
@@ -205,7 +224,7 @@ namespace DemonWeave.Quests
             IsClosed = true;
             foreach (var instance in ordered)
                 if (instance.State == QuestStatus.Waiting || instance.State == QuestStatus.Active)
-                { instance.State = QuestStatus.Cancelled; Emit(instance, QuestNoticeKind.State, "Scene/application scope disposed"); }
+                { instance.State = QuestStatus.Cancelled; CloseStages(instance, "Scene/application scope disposed"); Emit(instance, QuestNoticeKind.State, "Scene/application scope disposed"); }
             consumed.Clear(); world = null;
             Closed?.Invoke(this); Closed = null;
         }

@@ -39,6 +39,14 @@ namespace DemonWeave.Editor
                 foreach (var child in condition.Children)
                     foreach (var dependency in Dependencies(child)) yield return dependency;
         }
+        public static IEnumerable<QuestExec> Executions(QuestDefinition q) => q.BeginExec.Concat(q.FinishExec).Concat(q.FailExec)
+            .Concat(q.Stages.SelectMany(s => s.BeginExec.Concat(s.FinishExec).Concat(s.Routes.SelectMany(r => r.SelectedExec))));
+        public static bool References(QuestDefinition q, string id) => q.ParentId == id
+            || Dependencies(q.Accept).Any(c => c.Subject == id)
+            || q.Finish.Concat(q.Fail).Concat(q.Stages.SelectMany(s => s.Objectives.Concat(s.Routes.SelectMany(r => r.Objectives))))
+                .Any(c => c.Kind == ContentKind.QuestState && c.Subject == id)
+            || q.Stages.SelectMany(s => new[] { s.OpenWhen }.Concat(s.Routes.Select(r => r.AvailableWhen)).Concat(s.Switches.Select(t => t.When)))
+                .SelectMany(Dependencies).Any(c => c.Subject == id);
         public static void RemoveCondition(QuestDefinition quest, QuestCondition target)
         {
             if (ReferenceEquals(quest.Accept, target)) { quest.Accept = new QuestCondition { Kind = ConditionKind.All }; return; }
@@ -54,6 +62,7 @@ namespace DemonWeave.Editor
         {
             if (condition == null) return "缺少条件";
             if (condition.Kind == ConditionKind.QuestState) return title(condition.Subject) + " / " + Status(condition.State);
+            if (condition.Kind == ConditionKind.StageState) return "阶段 " + condition.Subject + " / " + Status(condition.State);
             if (condition.Kind == ConditionKind.Fact) return condition.Subject + "." + condition.Key + " = " + condition.Expected;
             if (condition.Children == null || condition.Children.Count == 0) return condition.Kind == ConditionKind.All ? "无前置限制" : "任一条件组为空";
             return (condition.Kind == ConditionKind.All ? "全部满足" : "任一满足") + "（" + string.Join("；", condition.Children.Select(c => ConditionText(c, title))) + "）";

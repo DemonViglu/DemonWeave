@@ -23,6 +23,7 @@ namespace DemonWeave.Editor
         private QuestRelationGraph graph;
         private string notice = "";
         private string lastDocument;
+        private bool showStages;
         [MenuItem("DemonWeave/任务编排")]
         public static void Open()
         {
@@ -58,6 +59,7 @@ namespace DemonWeave.Editor
             var asset = new ObjectField("任务集") { objectType = typeof(QuestBookAsset), allowSceneObjects = false, value = book }; asset.style.width = 310;
             asset.RegisterValueChangedCallback(e => { book = e.newValue as QuestBookAsset; selectedId = null; Rebuild(); }); toolbar.Add(asset);
             toolbar.Add(new ToolbarButton(() => graph?.FrameAll()) { text = "总览" });
+            toolbar.Add(new ToolbarButton(() => { showStages = !showStages; Rebuild(); }) { text = "切换任务关系 / 内部阶段" });
             toolbar.Add(new ToolbarButton(AddQuest) { text = "+ 独立任务" });
             toolbar.Add(new ToolbarButton(() => QuestProposalWindow.Open(book, hostObject)) { text = "AI / 局部修改" });
             toolbar.Add(new ToolbarButton(() => { if (book) { book.OnBeforeSerialize(); EditorUtility.SetDirty(book); AssetDatabase.SaveAssets(); notice = "任务定义已保存。场景绑定请 Ctrl+S 保存。"; UpdateStatus(); } }) { text = "保存定义" });
@@ -89,9 +91,18 @@ namespace DemonWeave.Editor
                     graphArea.Add(new HelpBox("任务标识缺失或重复，关系图暂不可用。请先修正定义。", HelpBoxMessageType.Error));
                 else
                 {
+                    var selected = book.Quests.FirstOrDefault(q => q.Id == selectedId);
+                    if (showStages && selected != null)
+                    {
+                        graphArea.Add(new HelpBox("内部阶段依赖投影。请在右侧展开阶段，勾选前置、编辑目标与路线；此视图不执行任意控制流。", HelpBoxMessageType.Info));
+                        graphArea.Add(new QuestStageGraph(selected));
+                    }
+                    else
+                    {
                     graph = new QuestRelationGraph(book, id => { selectedId = id; inspector.scrollOffset = Vector2.zero; BuildInspector(); }, Rebuild, oldPositions == null);
                     graphArea.Add(graph);
                     if (oldPositions != null) { graph.RestorePositions(oldPositions); graph.UpdateViewTransform(oldPan, oldZoom); }
+                    }
                 }
                 BuildInspector(); UpdateStatus();
                 inspector.schedule.Execute(() => inspector.scrollOffset = oldScroll).ExecuteLater(1);
@@ -113,6 +124,7 @@ namespace DemonWeave.Editor
                 var cancel = new Toggle("结束时关闭未完成子任务") { value = quest.CancelChildrenOnEnd };
                 cancel.RegisterValueChangedCallback(e => Edit("修改子任务结束政策", () => quest.CancelChildrenOnEnd = e.newValue)); editable.Add(cancel);
                 editable.Add(Heading("接取条件 · Cond")); BuildCondition(editable, quest.Accept, value => quest.Accept = value, 0);
+                BuildStages(editable, quest);
                 BuildContents(editable, quest, false); BuildContents(editable, quest, true);
                 BuildExecs(editable, quest.BeginExec, "开始时 · Begin Exec");
                 BuildExecs(editable, quest.FinishExec, "完成时 · Finish Exec");
@@ -153,8 +165,7 @@ namespace DemonWeave.Editor
         }
         private void RemoveQuest(QuestDefinition quest)
         {
-            var references = book.Quests.Where(q => q.Id != quest.Id && (q.ParentId == quest.Id || QuestAuthoringChecks.Dependencies(q.Accept).Any(c => c.Subject == quest.Id)
-                || q.Finish.Concat(q.Fail).Any(c => c.Kind == ContentKind.QuestState && c.Subject == quest.Id))).Select(q => q.Title).ToArray();
+            var references = book.Quests.Where(q => q.Id != quest.Id && QuestAuthoringChecks.References(q, quest.Id)).Select(q => q.Title).ToArray();
             if (references.Length > 0) { notice = "无法删除，仍被引用：" + string.Join("、", references); UpdateStatus(); return; }
             Edit("删除独立任务", () => book.Quests.Remove(quest));
         }
@@ -169,6 +180,8 @@ namespace DemonWeave.Editor
             if (live != null)
                 live.text = run?.Find(selectedId) == null ? "进入 Play 后显示当前任务的条件与进度。" : QuestAuthoringChecks.Status(run.Find(selectedId).State) + "\n"
                     + string.Join("\n", run.Explain(selectedId)) + "\n\n最近行为：\n" + string.Join("\n", Host.Activity.Skip(Math.Max(0, Host.Activity.Count - 8)));
+            if (live != null && run?.Find(selectedId) != null)
+                live.text += "\n\n" + string.Join("\n", run.Find(selectedId).Stages.SelectMany(s => run.ExplainStage(selectedId, s.Id)));
         }
         private static Label Heading(string title) => new Label(title) { style = { fontSize = 15, unityFontStyleAndWeight = FontStyle.Bold, marginTop = 18, marginBottom = 8 } };
         private static void Text(VisualElement parent, string label, string value, Action<string> changed)

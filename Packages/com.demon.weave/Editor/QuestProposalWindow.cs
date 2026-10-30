@@ -64,7 +64,9 @@ namespace DemonWeave.Editor
             return "You are editing a local game quest definition. Return ONLY one JSON object; do not output C# or markdown. " +
                 "Use schema 1: {Schema:1,BookId:string,BaseRevision:string,Summary:string,Operations:[{Op:'add'|'set'|'remove',QuestId:string,Field?:string,Value?:JSON}]}. " +
                 "add uses a complete new quest as Value with matching Id and no Field; remove uses only Op/QuestId. " +
-                "set replaces ONE field of an existing quest. Allowed fields: Title,ParentId,Accept,FinishCombination,FailCombination,Finish,Fail,BeginExec,FinishExec,FailExec,CancelChildrenOnEnd. " +
+                "set replaces ONE field of an existing quest. Allowed fields: Title,ParentId,Accept,FinishCombination,FailCombination,Finish,Fail,BeginExec,FinishExec,FailExec,CancelChildrenOnEnd,Stages. " +
+                "For an existing stage prefer Op:'set-stage', QuestId, StageId, Field, Value. Allowed stage fields: Title,Required,After,OpenWhen,Objectives,Completion,BeginExec,FinishExec,Routes,Switches. This edits one stage field without replacing all stages. Stages belong inside a quest; never split them into unrelated quests. Each stage's Objectives are its completion evidence, All by default; do not duplicate them in quest Finish. " +
+                "Routes are explicit exclusive choices; switching requires From/To/When. World consequences belong to registered capabilities and actual facts, not fabricated completion. " +
                 "Preserve unrelated content and stable IDs. Use only provided roles, facts/events and capabilities. " +
                 "A completed action/dialogue is not a completed quest. Quest state dependencies are not execution order. " +
                 "Use named enums exactly as current definitions. If no implementation exists, explain in Summary and return Operations:[]; never invent executable abilities.\n" +
