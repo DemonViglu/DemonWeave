@@ -14,7 +14,7 @@ namespace DemonWeave.Editor
     public sealed partial class QuestEditorWindow : EditorWindow
     {
         private MonoBehaviour hostObject;
-        private IQuestAuthoringHost Host => hostObject as IQuestAuthoringHost;
+        private IQuestAuthoringHost Host => hostObject ? hostObject as IQuestAuthoringHost : null;
         [SerializeField] private QuestBookAsset book;
         private string selectedStageId;
         private IVisualElementScheduledItem statusSchedule;
@@ -25,13 +25,14 @@ namespace DemonWeave.Editor
         private Label diagnostics, live;
         private QuestRelationGraph graph;
         private QuestStageGraph stageGraph;
+        private string displayedStageQuestId;
         private string notice = "";
         private string lastDocument;
         private bool showStages;
-        [MenuItem("DemonWeave/任务编辑器")]
+        [MenuItem("DemonWeave/Quest Editor")]
         public static void Open()
         {
-            var window = GetWindow<QuestEditorWindow>("DemonWeave · 任务编排");
+            var window = GetWindow<QuestEditorWindow>("DemonWeave");
             window.minSize = new Vector2(1080, 720);
             if (window.position.width < 1200) window.position = new Rect(50, 60, 1500, 850);
             window.Show();
@@ -40,7 +41,8 @@ namespace DemonWeave.Editor
         {
             if (!asset) return;
             var window = GetWindow<QuestEditorWindow>("DemonWeave");
-            window.book = asset; window.hostObject = host; window.selectedId = null; window.selectedStageId = null; window.detailSection = "概览"; window.graph = null;
+            window.book = asset; window.hostObject = host; window.selectedId = null; window.selectedStageId = null; window.detailSection = "Overview"; window.graph = null;
+            window.showStages = false;
             window.minSize = new Vector2(1080, 700); window.CreateGUI(); window.Show(); window.Focus();
         }
         private void OnEnable() { Undo.undoRedoPerformed += Rebuild; EditorApplication.playModeStateChanged += OnPlay; }
@@ -48,7 +50,9 @@ namespace DemonWeave.Editor
         private void OnFocus()
         {
             if (body == null || !book) return;
-            try { if (lastDocument != book.ExportDefinitions()) Rebuild(); } catch { Rebuild(); }
+            var previousHost = hostObject;
+            LocateHost();
+            try { if (previousHost != hostObject || lastDocument != book.ExportDefinitions()) Rebuild(); } catch { Rebuild(); }
         }
         private void OnPlay(PlayModeStateChange state) { LocateHost(); Rebuild(); }
         private void LocateHost()
@@ -59,40 +63,56 @@ namespace DemonWeave.Editor
         public void CreateGUI()
         {
             LocateHost(); rootVisualElement.Clear();
+            rootVisualElement.AddToClassList("weave-window"); QuestEditorTheme.Apply(rootVisualElement);
             statusSchedule?.Pause();
             rootVisualElement.style.backgroundColor = new Color(.075f, .09f, .12f);
             rootVisualElement.style.fontSize = 13;
-            var header = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center, paddingLeft = 20, height = 62, backgroundColor = new Color(.10f, .12f, .16f) } };
-            header.Add(new Label(book ? (string.IsNullOrEmpty(book.Title) ? book.name : book.Title) : "打开任务资产") { style = { fontSize = 20, flexGrow = 1 } });
+            var header = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center, paddingLeft = 12, height = 36, backgroundColor = new Color(.10f, .12f, .16f) } };
+            breadcrumbs = header;
             rootVisualElement.Add(header);
-            if (book && book.Quests.Count == 1 && book.Quests[0].Stages.Count > 0) showStages = true;
             var toolbar = new Toolbar();
-            var context = new Foldout { text = "预览场景与任务资产", value = false };
+            if (Host == null && book)
+            {
+                var attach = new ToolbarButton(AttachToScene) { text = "Use in Scene", tooltip = "Create the scene runtime for this collection. No sample Scenario is required." };
+                attach.SetEnabled(!EditorApplication.isPlaying); toolbar.Add(attach);
+            }
+            var context = new Foldout { text = "Preview Context", value = false };
             toolbar.style.height = 32; toolbar.style.paddingLeft = 12;
-            var host = new ObjectField("运行预览") { objectType = typeof(MonoBehaviour), allowSceneObjects = true, value = hostObject };
+            var host = new ObjectField("Scene Host") { objectType = typeof(MonoBehaviour), allowSceneObjects = true, value = hostObject };
             host.style.width = 300;
             host.RegisterValueChangedCallback(e => {
                 var value = e.newValue as MonoBehaviour;
-                if (value && !(value is IQuestAuthoringHost)) { notice = "组件未提供任务作者接口。"; host.SetValueWithoutNotify(hostObject); return; }
-                hostObject = value; book = Host?.BookAsset; Rebuild();
+                if (value && !(value is IQuestAuthoringHost)) { notice = "Component does not implement the Quest authoring interface."; host.SetValueWithoutNotify(hostObject); return; }
+                hostObject = value; if (!book && Host != null) book = Host.BookAsset; Rebuild();
             }); context.Add(host);
-            var asset = new ObjectField("任务集") { objectType = typeof(QuestBookAsset), allowSceneObjects = false, value = book }; asset.style.width = 310;
-            asset.RegisterValueChangedCallback(e => { book = e.newValue as QuestBookAsset; selectedId = null; Rebuild(); }); context.Add(asset);
-            var technicalToggle = new ToolbarToggle { text = "技术视图", value = technicalView };
-            technicalToggle.RegisterValueChangedCallback(e => { technicalView = e.newValue; resourceSelection = null; Rebuild(); }); toolbar.Add(technicalToggle);
-            toolbar.Add(new ToolbarButton(() => graph?.FrameAll()) { text = "总览" });
-            toolbar.Add(new ToolbarButton(() => { showStages = !showStages; Rebuild(); }) { text = "切换任务关系 / 内部阶段" });
-            toolbar.Add(new ToolbarButton(AddQuest) { text = "+ 独立任务" });
-            toolbar.Add(new ToolbarButton(() => QuestProposalWindow.Open(book, hostObject)) { text = "AI / 局部修改" });
+            var asset = new ObjectField("Quest Collection") { objectType = typeof(QuestBookAsset), allowSceneObjects = false, value = book }; asset.style.width = 310;
+            asset.RegisterValueChangedCallback(e => { book = e.newValue as QuestBookAsset; hostObject = null; LocateHost(); selectedId = null; Rebuild(); }); context.Add(asset);
+            var technicalToggle = new ToolbarToggle { text = "Advanced", value = technicalView };
+            technicalToggle.RegisterValueChangedCallback(e => { technicalView = e.newValue; Rebuild(); }); toolbar.Add(technicalToggle);
+            toolbar.Add(new ToolbarButton(() => { if (stageGraph != null) stageGraph.FrameAll(); else graph?.FrameAll(); }) { text = "Frame All" });
+            toolbar.Add(new ToolbarButton(() => QuestProposalWindow.Open(book, hostObject)) { text = "AI Changes" });
+            var tables = new ToolbarMenu { text = "Tables" };
+            tables.menu.AppendAction("Export CSV", _ => {
+                if (!book || EditorApplication.isPlaying) return;
+                var directory = EditorUtility.OpenFolderPanel("Export Quest Tables", "", ""); if (string.IsNullOrEmpty(directory)) return;
+                try { QuestTables.Export(book,directory); notice="CSV records exported."; UpdateStatus(); }
+                catch(Exception error) { notice=error.Message; UpdateStatus(); }
+            });
+            tables.menu.AppendAction("Import CSV...", _ => {
+                if (!book || EditorApplication.isPlaying) return;
+                var directory = EditorUtility.OpenFolderPanel("Import Quest Tables", "", ""); if (string.IsNullOrEmpty(directory)) return;
+                try { QuestTableWindow.Review(book,Host,directory); }
+                catch(Exception error) { notice=error.Message; UpdateStatus(); }
+            }); toolbar.Add(tables);
             toolbar.Add(new ToolbarButton(() => {
                 if (!book || EditorApplication.isPlaying) return;
                 book.OnBeforeSerialize(); EditorUtility.SetDirty(book); AssetDatabase.SaveAssets();
                 bool sceneSaved = !hostObject || !hostObject.gameObject.scene.IsValid() || EditorSceneManager.SaveScene(hostObject.gameObject.scene);
-                notice = sceneSaved ? "任务与场景绑定已保存。" : "任务资产已保存；场景绑定尚未保存。"; UpdateStatus();
-            }) { text = "保存" });
+                notice = sceneSaved ? "Quest and scene bindings saved." : "Quest saved; scene bindings were not saved."; UpdateStatus();
+            }) { text = "Save" });
             rootVisualElement.Add(toolbar);
             rootVisualElement.Add(context);
-            toolbar.Add(new ToolbarButton(() => EditorUtility.DisplayDialog("编辑任务", "点击阶段卡片编辑目标、前置和行为。任务关系视图中，可拖动状态端口到接取条件端口添加完成前置。场景对象与演出资源在宿主中绑定。", "关闭")) { text = "帮助" });
+            toolbar.Add(new ToolbarButton(() => EditorUtility.DisplayDialog("Edit Quest", "Select a node to edit its properties. Connect ports to add prerequisites. Custom node types are ScriptableObject templates.", "Close")) { text = "Help" });
             body = new VisualElement { style = { flexGrow = 1, flexDirection = FlexDirection.Row } }; rootVisualElement.Add(body);
             diagnostics = new Label { style = { whiteSpace = WhiteSpace.Normal, paddingLeft = 12, paddingRight = 12, paddingTop = 8, paddingBottom = 8, maxHeight = 100 } };
             rootVisualElement.Add(diagnostics); Rebuild();
@@ -105,43 +125,72 @@ namespace DemonWeave.Editor
             var oldPan = graph?.viewTransform.position ?? Vector3.zero;
             var oldZoom = graph?.viewTransform.scale ?? Vector3.one;
             var oldScroll = inspector?.scrollOffset ?? Vector2.zero;
+            var nodePositions = displayedStageQuestId == selectedId ? stageGraph?.CapturePositions() : null;
+            var nodePan = stageGraph?.viewTransform.position ?? Vector3.zero;
+            var nodeZoom = stageGraph?.viewTransform.scale ?? Vector3.one;
             body.Clear(); graph = null; stageGraph = null; live = null;
-            if (!book) { body.Add(new HelpBox("在 Project 中双击 QuestBook 任务资产，或将资产拖入上方任务集。无需先打开样本场景。", HelpBoxMessageType.Info)); return; }
+            if (!book) { body.Add(new HelpBox("Open a Quest Collection asset from the Project window.", HelpBoxMessageType.Info)); return; }
             try
             {
                 lastDocument = book.ExportDefinitions();
                 LoadAuthoringProfile();
-                if (!technicalView) body.Add(ResourceList());
                 if (selectedId == null || !book.Quests.Any(q => q.Id == selectedId)) selectedId = book.Quests.FirstOrDefault()?.Id;
+                UpdateBreadcrumbs();
+                body.Add(TaskList());
                 var split = new TwoPaneSplitView(1, 400, TwoPaneSplitViewOrientation.Horizontal) { style = { flexGrow = 1 } };
                 var graphArea = new VisualElement { style = { flexGrow = 1, minWidth = 250 } }; split.Add(graphArea);
+                if (Host != null && Host.BookAsset != book)
+                {
+                    var binding = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center } };
+                    binding.Add(new Label("This collection is not used by the Scene Host.") { style = { flexGrow = 1, whiteSpace = WhiteSpace.Normal } });
+                    var assign = new Button(AssignCollectionToHost) { text = "Use Collection in Scene", name = "assign-collection" };
+                    assign.SetEnabled(!EditorApplication.isPlaying); binding.Add(assign); graphArea.Add(binding);
+                }
                 if (technicalView && Host is IQuestRecoveryAuthoring recovery)
                 {
-                    var recoveryButton = new Button(() => { detailSection = "恢复"; BuildInspector(); }) { text = "战败与恢复  ·  " + recovery.RecoveryTrigger + "  →  查看处理", tooltip = recovery.RecoveryOutcome };
+                    var recoveryButton = new Button(() => { detailSection = "Recovery"; BuildInspector(); }) { text = "Recovery  ·  " + recovery.RecoveryTrigger + "  > Inspect", tooltip = recovery.RecoveryOutcome };
                     recoveryButton.style.height = 40; recoveryButton.style.color = new Color(1,.78f,.42f); recoveryButton.style.backgroundColor = new Color(.18f,.13f,.12f); graphArea.Add(recoveryButton);
                 }
                 var detailPane = new VisualElement { style = { minWidth = 320, flexGrow = 1 } };
                 inspectorHeader = new VisualElement { style = { paddingLeft = 14, paddingRight = 14, backgroundColor = new Color(.10f,.13f,.18f) } }; detailPane.Add(inspectorHeader);
                 inspector = new ScrollView { style = { flexGrow = 1, paddingLeft = 14, paddingRight = 14, paddingBottom = 20 } }; detailPane.Add(inspector); split.Add(detailPane); body.Add(split);
-                if (book.Quests.Any(q => q == null || string.IsNullOrWhiteSpace(q.Id)) || book.Quests.Select(q => q.Id).Distinct().Count() != book.Quests.Count)
-                    graphArea.Add(new HelpBox("任务标识缺失或重复，关系图暂不可用。请先修正定义。", HelpBoxMessageType.Error));
+                if (book.Quests.Count == 0)
+                {
+                    graphArea.Add(Heading("No quests yet"));
+                    graphArea.Add(new Button(AddQuest) { text = "Create First Quest" });
+                }
+                else if (book.Quests.Any(q => q == null || string.IsNullOrWhiteSpace(q.Id)) || book.Quests.Select(q => q.Id).Distinct().Count() != book.Quests.Count)
+                    graphArea.Add(new HelpBox("Missing or duplicate Quest IDs. Fix the definition to display dependencies.", HelpBoxMessageType.Error));
                 else
                 {
                     var selected = book.Quests.FirstOrDefault(q => q.Id == selectedId);
                     if (showStages && selected != null)
                     {
-                        stageGraph = new QuestStageGraph(selected, stageId => {
-                            resourceSelection = null; selectedStageId = stageId; detailSection = "目标"; BuildInspector();
+                        if (selected.Stages.Count == 0)
+                        {
+                            var empty = new VisualElement { style = { paddingLeft = 32, paddingTop = 40 } };
+                            empty.Add(Heading("Empty Quest"));
+                            empty.Add(new Button(() => AddStage(selected, null)) { text = "Add Node", name = "add-first-node" });
+                            empty.Add(new Button(() => ShowStageMenu(selected)) { text = "From Template…" });
+                            graphArea.Add(empty);
+                        }
+                        else {
+                        stageGraph = new QuestStageGraph(QuestBookAsset.Compile(selected, false), stageId => {
+                            selectedStageId = stageId; detailSection = "Objective"; BuildInspector();
                             inspector.schedule.Execute(() => { var field = inspector.Q<VisualElement>("stage-" + stageId); if (field != null) inspector.ScrollTo(field); }).ExecuteLater(1);
                         }, stage => {
                             var producer = authorProfile?.ProducerFor(Host, stage.OpenWhen);
-                            return producer == null ? null : selected.Stages.FirstOrDefault(s => s.BeginExec.Any(e => e.CapabilityId == producer));
-                        }, condition => Host?.Signals.FirstOrDefault(s => s.Role == condition.Subject && s.Key == condition.Key).Label ?? condition.Key);
+                            var sources = producer == null ? Array.Empty<QuestStage>() : QuestBookAsset.Compile(selected, false).Stages.Where(s => s.Id != stage.Id && s.BeginExec.Concat(s.FinishExec).Any(e => authorProfile.Produces(Host, e, stage.OpenWhen))).ToArray();
+                            return sources.Length == 1 ? sources[0] : null;
+                        }, AuthorCondition, ids => DeleteStages(selected, ids), (from, to) => Edit("Remove Node Dependency", () => selected.Stages.Single(s => s.Id == to).After.Remove(from)), (from, to) => ConnectStages(selected, from, to), () => AddStage(selected, null), nodePositions == null, () => ShowStageMenu(selected));
                         graphArea.Add(stageGraph);
+                        displayedStageQuestId = selectedId;
+                        if (nodePositions != null) { stageGraph.RestorePositions(nodePositions); stageGraph.UpdateViewTransform(nodePan, nodeZoom); }
+                        }
                     }
                     else
                     {
-                    graph = new QuestRelationGraph(book, id => { selectedId = id; inspector.scrollOffset = Vector2.zero; BuildInspector(); }, Rebuild, oldPositions == null);
+                    graph = new QuestRelationGraph(book, id => { selectedId = id; selectedStageId = null; inspector.scrollOffset = Vector2.zero; BuildInspector(); }, Rebuild, oldPositions == null, DeleteQuests, OpenQuest);
                     graphArea.Add(graph);
                     if (oldPositions != null) { graph.RestorePositions(oldPositions); graph.UpdateViewTransform(oldPan, oldZoom); }
                     }
@@ -159,45 +208,44 @@ namespace DemonWeave.Editor
             if (!technicalView) { BuildAuthorInspector(quest); return; }
             var stage = quest.Stages.FirstOrDefault(s => s.Id == selectedStageId);
             inspectorHeader.Add(Heading(stage == null ? quest.Title : stage.Title));
-            if (stage != null) inspectorHeader.Add(new Button(() => { selectedStageId = null; detailSection = "概览"; BuildInspector(); }) { text = "← 返回任务概览" });
-            var sections = stage == null ? new[] { "概览", "接取", "失败", "恢复", "绑定", "运行" } : new[] { "目标", "条件", "行为", "路线", "恢复", "运行" };
+            if (stage != null) inspectorHeader.Add(new Button(() => { selectedStageId = null; detailSection = "Overview"; BuildInspector(); }) { text = "Back to Quest" });
+            var sections = stage == null ? new[] { "Overview", "Activation", "Failure", "Recovery", "Runtime" } : new[] { "Objective", "Conditions", "Action", "Routes", "Recovery", "Runtime" };
             if (!sections.Contains(detailSection)) detailSection = sections[0];
             Tabs(inspectorHeader, sections, detailSection, value => { detailSection = value; inspector.scrollOffset = Vector2.zero; BuildInspector(); });
             var editable = new VisualElement(); editable.SetEnabled(!EditorApplication.isPlaying); inspector.Add(editable);
-            if (detailSection == "恢复") BuildRecovery(editable);
-            else if (detailSection == "绑定") BuildBindings(editable);
-            else if (detailSection == "运行")
-            { inspector.Add(new HelpBox("这里只展示当前运行实例；内容编辑在退出 Play 后进行。", HelpBoxMessageType.Info)); live = new Label { style = { whiteSpace = WhiteSpace.Normal } }; inspector.Add(live); }
+            if (detailSection == "Recovery") BuildRecovery(editable);
+            else if (detailSection == "Runtime")
+            { inspector.Add(new HelpBox("Inspect the running instance. Exit Play to edit content.", HelpBoxMessageType.Info)); live = new Label { style = { whiteSpace = WhiteSpace.Normal } }; inspector.Add(live); }
             else if (stage != null) BuildStages(editable, quest);
-            else if (detailSection == "概览")
+            else if (detailSection == "Overview")
             {
-                Text(editable, "任务名称", quest.Title, value => Edit("修改任务名称", () => quest.Title = value));
+                Text(editable, "Quest Name", quest.Title, value => Edit("Rename Quest", () => quest.Title = value));
                 BuildStages(editable, quest);
                 if (quest.Stages.Count == 0) BuildContents(editable, quest, false);
-                var advanced = new Foldout { text = "高级：归属与生命周期", value = false }; editable.Add(advanced);
-                QuestChoice(advanced, "父任务", quest.ParentId, value => Edit("修改归属", () => quest.ParentId = value), true, quest.Id);
-                var cancel = new Toggle("结束时关闭未完成子任务") { value = quest.CancelChildrenOnEnd }; cancel.RegisterValueChangedCallback(e => Edit("修改结束政策", () => quest.CancelChildrenOnEnd = e.newValue)); advanced.Add(cancel);
-                BuildExecs(advanced, quest.BeginExec, "任务开始行为"); BuildExecs(advanced, quest.FinishExec, "任务完成行为");
+                var advanced = new Foldout { text = "Ownership and Lifecycle", value = false }; editable.Add(advanced);
+                QuestChoice(advanced, "Parent Quest", quest.ParentId, value => Edit("Change Parent", () => quest.ParentId = value), true, quest.Id);
+                var cancel = new Toggle("Cancel children on exit") { value = quest.CancelChildrenOnEnd }; cancel.RegisterValueChangedCallback(e => Edit("Change Exit Policy", () => quest.CancelChildrenOnEnd = e.newValue)); advanced.Add(cancel);
+                BuildExecs(advanced, quest.BeginExec, "On Quest Enter"); BuildExecs(advanced, quest.FinishExec, "On Quest Complete");
             }
-            else if (detailSection == "接取") BuildCondition(editable, quest.Accept, value => quest.Accept = value, 0);
-            else if (detailSection == "失败")
+            else if (detailSection == "Activation") BuildCondition(editable, quest.Accept, value => quest.Accept = value, 0);
+            else if (detailSection == "Failure")
             {
-                if (quest.Fail.Count == 0) editable.Add(new HelpBox("此任务没有内容失败条件。玩家战败后的处理请查看“恢复”，它不等于任务内容判定失败。", HelpBoxMessageType.Info));
-                BuildContents(editable, quest, true); BuildExecs(editable, quest.FailExec, "任务失败行为");
+                if (quest.Fail.Count == 0) editable.Add(new HelpBox("No quest failure conditions configured.", HelpBoxMessageType.Info));
+                BuildContents(editable, quest, true); BuildExecs(editable, quest.FailExec, "On Quest Fail");
             }
             UpdateStatus();
         }
         private void BuildRecovery(VisualElement parent)
         {
-            parent.Add(Heading("战败与恢复"));
+            parent.Add(Heading("Recovery"));
             if (!(Host is IQuestRecoveryAuthoring recovery))
-            { parent.Add(new HelpBox("当前资产没有连接提供恢复政策的场景宿主。恢复由游戏宿主管理，不自动推断为任务路线。", HelpBoxMessageType.Info)); return; }
-            parent.Add(new Label("触发  ·  " + recovery.RecoveryTrigger) { style = { whiteSpace = WhiteSpace.Normal, marginBottom = 16 } });
+            { parent.Add(new HelpBox("No recovery provider is connected.", HelpBoxMessageType.Info)); return; }
+            parent.Add(new Label("Trigger: " + recovery.RecoveryTrigger) { style = { whiteSpace = WhiteSpace.Normal, marginBottom = 16 } });
             var data = new SerializedObject(hostObject); var property = data.FindProperty(recovery.RecoveryProperty);
             if (property != null)
             {
                 var lastValue = property.contentHash;
-                var field = new PropertyField(property, "处理方式"); parent.Add(field);
+                var field = new PropertyField(property, "Policy"); parent.Add(field);
                 field.RegisterCallback<SerializedPropertyChangeEvent>(_ => {
                     data.ApplyModifiedProperties();
                     var current = data.FindProperty(recovery.RecoveryProperty).contentHash;
@@ -207,62 +255,74 @@ namespace DemonWeave.Editor
                 });
                 field.Bind(data);
             }
-            parent.Add(new Label("结果  ·  " + recovery.RecoveryOutcome) { style = { whiteSpace = WhiteSpace.Normal, marginTop = 16, marginBottom = 16 } });
-            parent.Add(new HelpBox("这是整个任务范围的宿主恢复政策。回档会取消旧尝试、清理动态对象并重建安全点；剧情选路则保留世界后果。", HelpBoxMessageType.Info));
-        }
-        private void BuildBindings(VisualElement parent)
-        {
-            var foldout = new Foldout { text = "场景对象绑定", value = true }; parent.Add(foldout);
-            if (Host == null) { foldout.Add(new Label("未连接场景宿主。")); return; }
-            if (Host.BookAsset != book) foldout.Add(new Button(() => {
-                Undo.RecordObject(hostObject, "使用任务集"); Host.BookAsset = book; MarkHost(); Rebuild();
-            }) { text = "将此任务集绑定到当前场景" });
-            foreach (var binding in Host.BindingEntries)
-            {
-                var field = new ObjectField(binding.Role) { objectType = typeof(QuestEntity), allowSceneObjects = true, value = binding.Entity };
-                field.RegisterValueChangedCallback(e => { Undo.RegisterCompleteObjectUndo(hostObject, "更换任务对象"); binding.Entity = e.newValue as QuestEntity; MarkHost(); UpdateStatus(); }); foldout.Add(field);
-            }
-            foldout.Add(new HelpBox("此处替换逻辑角色对应的场景实例。对象内部的组件与资源引用，在相应 Gameplay 组件中配置。", HelpBoxMessageType.Info));
+            parent.Add(new Label("Result: " + recovery.RecoveryOutcome) { style = { whiteSpace = WhiteSpace.Normal, marginTop = 16, marginBottom = 16 } });
+            parent.Add(new HelpBox("Host recovery cancels the attempt and restores a checkpoint.", HelpBoxMessageType.Info));
         }
         private void MarkHost()
         {
             EditorUtility.SetDirty(hostObject); PrefabUtility.RecordPrefabInstancePropertyModifications(hostObject);
             EditorSceneManager.MarkSceneDirty(hostObject.gameObject.scene);
         }
+        private void AssignCollectionToHost()
+        {
+            if (!book || Host == null || EditorApplication.isPlaying) return;
+            Undo.RecordObject(hostObject, "Assign Quest Collection"); Host.BookAsset = book;
+            MarkHost(); notice = "Scene Host now uses this collection. Save the scene bindings before running."; Rebuild();
+        }
+        private void AttachToScene()
+        {
+            if (!book || EditorApplication.isPlaying) return;
+            var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+            if (!scene.IsValid() || !scene.isLoaded) { notice = "Open a scene first."; UpdateStatus(); return; }
+            var root = new GameObject("Quest Runtime — " + book.name);
+            Undo.RegisterCreatedObjectUndo(root, "Use Quest in Scene");
+            var host = Undo.AddComponent<QuestSceneHost>(root); host.BookAsset = book;
+            hostObject = host; MarkHost(); CreateGUI();
+        }
         private void Edit(string label, Action action)
-        { QuestAuthoringChecks.Edit(book, label, _ => action()); notice = "有未保存修改；运行实例在下次 Play 读取。"; Rebuild(); }
+        { QuestAuthoringChecks.Edit(book, label, _ => action()); notice = "Unsaved changes. The next Play session uses the new definition."; Rebuild(); }
         private void AddQuest()
         {
             if (!book || EditorApplication.isPlaying) return;
-            var id = "quest-" + Guid.NewGuid().ToString("N").Substring(0, 10);
-            QuestAuthoringChecks.Edit(book, "新增独立任务", quests => quests.Add(new QuestDefinition { Id = id, Title = "新任务" }));
-            selectedId = id; Rebuild();
+            var title = "New Quest"; int suffix = 2;
+            while (book.Quests.Any(q => q.Title == title)) title = "New Quest " + suffix++;
+            var quest = new QuestDefinition { Id = "quest-" + Guid.NewGuid().ToString("N"), Title = title };
+            QuestAuthoringChecks.Edit(book, "Create Quest", quests => quests.Add(quest));
+            notice = ""; OpenQuest(quest.Id);
         }
         private void RemoveQuest(QuestDefinition quest)
         {
-            var references = book.Quests.Where(q => q.Id != quest.Id && QuestAuthoringChecks.References(q, quest.Id)).Select(q => q.Title).ToArray();
-            if (references.Length > 0) { notice = "无法删除，仍被引用：" + string.Join("、", references); UpdateStatus(); return; }
-            Edit("删除独立任务", () => book.Quests.Remove(quest));
+            DeleteQuests(new[] { quest.Id });
         }
         private void UpdateStatus()
         {
             if (!book || diagnostics == null) return;
             var errors = QuestAuthoringChecks.Validate(book, Host);
             diagnostics.text = errors.Count == 0 ? notice
-                : string.Join("\n", errors.Take(3)) + (errors.Count > 3 ? $"\n另有 {errors.Count - 3} 项。" : "");
+                : string.Join("\n", errors.Take(3)) + (errors.Count > 3 ? $"\n{errors.Count - 3} more issues." : "");
             diagnostics.style.display = string.IsNullOrWhiteSpace(diagnostics.text) ? DisplayStyle.None : DisplayStyle.Flex;
             var run = Host?.BookAsset == book ? Host.ActiveRun : null;
             graph?.UpdateStates(run);
             stageGraph?.UpdateStates(run?.Find(selectedId));
             if (!technicalView && live != null)
             {
-                var stage = run?.Find(selectedId)?.Stage(selectedStageId);
-                live.text = stage == null ? "进入 Play 后查看此阶段的进度。" : QuestAuthoringChecks.Status(stage.State) + "\n" + string.Join("\n", run.ExplainStage(selectedId, selectedStageId));
+                var instance = run?.Find(selectedId);
+                if (Host == null) live.text = "No Scene Host connected.";
+                else if (Host.BookAsset != book) live.text = "The Scene Host is running a different collection.";
+                else if (QuestBookAsset.IsDraft(book.Quests.FirstOrDefault(q => q.Id == selectedId))) live.text = "Draft — not submitted to the runtime.";
+                else if (instance == null) live.text = "No active instance. The attempt may be stopped, recovering, or waiting for retry. Check recent activity below.";
+                else if (string.IsNullOrEmpty(selectedStageId))
+                    live.text = QuestAuthoringChecks.Status(instance.State) + "\n" + string.Join("\n", run.Explain(selectedId)) + "\n"
+                        + string.Join("\n", instance.Stages.Select(s => s.Title + ": " + QuestAuthoringChecks.Status(s.State)));
+                else if (instance.Stage(selectedStageId) != null) live.text = string.Join("\n", run.ExplainStage(selectedId, selectedStageId));
+                else live.text = "This node is not in the running definition snapshot.";
+                if (Host != null && Host.BookAsset == book && Host.Activity.Count > 0)
+                    live.text += "\n\nRecent activity\n" + string.Join("\n", Host.Activity.Skip(Math.Max(0, Host.Activity.Count - 5)));
                 return;
             }
             if (live != null)
-                live.text = run?.Find(selectedId) == null ? "进入 Play 后显示当前任务的条件与进度。" : QuestAuthoringChecks.Status(run.Find(selectedId).State) + "\n"
-                    + string.Join("\n", run.Explain(selectedId)) + "\n\n最近行为：\n" + string.Join("\n", Host.Activity.Skip(Math.Max(0, Host.Activity.Count - 8)));
+                live.text = run?.Find(selectedId) == null ? "Enter Play to inspect this quest." : QuestAuthoringChecks.Status(run.Find(selectedId).State) + "\n"
+                    + string.Join("\n", run.Explain(selectedId)) + "\n\nRecent actions:\n" + string.Join("\n", Host.Activity.Skip(Math.Max(0, Host.Activity.Count - 8)));
             if (live != null && run?.Find(selectedId) != null)
                 live.text += "\n\n" + string.Join("\n", run.Find(selectedId).Stages.SelectMany(s => run.ExplainStage(selectedId, s.Id)));
         }
@@ -278,10 +338,42 @@ namespace DemonWeave.Editor
         private void QuestChoice(VisualElement parent, string label, string value, Action<string> changed, bool none = false, string exclude = null)
         {
             var ids = book.Quests.Where(q => q.Id != exclude).Select(q => q.Id).ToList(); if (none) ids.Insert(0, "");
-            Choice(parent, label, ids, value, changed, id => string.IsNullOrEmpty(id) ? "无" : book.Quests.FirstOrDefault(q => q.Id == id)?.Title ?? "缺失：" + id);
+            Choice(parent, label, ids, value, changed, id => string.IsNullOrEmpty(id) ? "None" : book.Quests.FirstOrDefault(q => q.Id == id)?.Title ?? "Missing: " + id);
         }
-        private void RoleChoice(VisualElement parent, string label, string value, Action<string> changed)
-        { Choice(parent, label, Host?.BindingEntries.Select(b => b.Role).ToList() ?? new List<string>(), value, changed,
-            role => Host?.BindingEntries.FirstOrDefault(b => b.Role == role)?.Entity is QuestEntity entity && entity ? entity.DisplayName + "（" + role + "）" : role + "（未绑定）"); }
+        private QuestStage SelectedNode => book?.Quests.FirstOrDefault(q => q.Id == selectedId)?.Stages.FirstOrDefault(n => n.Id == selectedStageId);
+        private void RoleChoice(VisualElement parent, string label, string value, Action<string> changed, bool entityOnly = false)
+        {
+            var current = Host?.BindingEntries.FirstOrDefault(b => b.Role == value);
+            var row = ItemRow(parent);
+            var field = new ObjectField(label) { objectType = entityOnly ? typeof(QuestEntity) : typeof(GameObject), allowSceneObjects = true,
+                value = entityOnly ? (UnityEngine.Object)current?.Entity : current?.Target, name = "target-" + label,
+                tooltip = entityOnly ? "Choose the business component that inherits QuestEntity." : "An explicit scene-object argument. No identity component is required." };
+            field.style.flexGrow = 1; field.SetEnabled(Host != null && !EditorApplication.isPlaying); row.Add(field);
+            GameObject ObjectOf(UnityEngine.Object obj) => obj is Component c ? c.gameObject : obj as GameObject;
+            IconAction(row, "◎", "Select in Hierarchy", () => { var go = ObjectOf(field.value); if(go) {Selection.activeGameObject = go; EditorGUIUtility.PingObject(go);} }).SetEnabled(current?.Target);
+            if(entityOnly) IconAction(row,"{}","Open Entity implementation",()=>OpenImplementation(current.Entity.GetType())).SetEnabled(current?.Entity);
+            field.RegisterValueChangedCallback(e => {
+                var target = ObjectOf(e.newValue);
+                var entity = target ? target.GetComponent<QuestEntity>() : null;
+                if(target && (target.scene != hostObject.gameObject.scene || !target.scene.IsValid() || entityOnly && (!entity || entity.GetType() == typeof(QuestEntity))))
+                {
+                    notice = entityOnly ? "Choose a logic component inheriting QuestEntity in this scene." : "Choose an object in this scene.";
+                    field.SetValueWithoutNotify(e.previousValue); UpdateStatus(); return;
+                }
+                Undo.IncrementCurrentGroup(); int group = Undo.GetCurrentGroup();
+                if(!target) { changed(""); return; }
+                if(entity && (string.IsNullOrEmpty(entity.Id) || UnityEngine.Object.FindObjectsByType<QuestEntity>(FindObjectsSortMode.None).Any(other=>other!=entity&&other.Id==entity.Id)))
+                {
+                    Undo.RecordObject(entity,"Assign Entity Identity");var data=new SerializedObject(entity);data.FindProperty("entityId").stringValue=Guid.NewGuid().ToString("N");data.ApplyModifiedProperties();PrefabUtility.RecordPrefabInstancePropertyModifications(entity);
+                }
+                var binding=Host.BindingEntries.FirstOrDefault(b=>b.Target==target);
+                if(binding==null)
+                {
+                    Undo.RecordObject(hostObject,"Bind Quest Reference");binding=new EntityBinding{Role=entity?"entity:"+entity.Id:"object:"+Guid.NewGuid().ToString("N"),Entity=entity,Object=entity?null:target};Host.BindingEntries.Add(binding);MarkHost();
+                }
+                EditorSceneManager.MarkSceneDirty(target.scene);changed(binding.Role);Undo.CollapseUndoOperations(group);
+            });
+            if(current==null && !string.IsNullOrEmpty(value)) parent.Add(new HelpBox("Unresolved reference: "+value,HelpBoxMessageType.Warning));
+        }
     }
 }

@@ -1,0 +1,18 @@
+using DemonWeave.Unity;
+using UnityEngine;
+
+public sealed class #SCRIPTNAME# : QuestEntity
+{
+    private bool completed;
+
+    [QuestCondition]
+    public bool IsComplete() => completed;
+
+    [QuestAction]
+    public void Complete()
+    {
+        // Replace this with your gameplay operation.
+        // Long-running operations should update the condition only when they actually finish.
+        completed = true;
+    }
+}

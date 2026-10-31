@@ -1,0 +1,6 @@
+﻿"QuestId","NodeId","Order","TypeId","EntityRole","Title","Required","Completion"
+"courtyard-rescue","enter","0","core.stage","entity:680752b11bae4be1b58cc113f59de460","Reach the courtyard","true","All"
+"courtyard-rescue","prepare","1","core.stage","entity:e3b39849d5d643c09704ef1ddc635a52","Breach the prison gate","true","All"
+"courtyard-rescue","clear","2","core.stage","entity:e3b39849d5d643c09704ef1ddc635a52","Defeat the prison guards","true","All"
+"courtyard-rescue","rescue","3","core.stage","entity:e3b39849d5d643c09704ef1ddc635a52","Free your companion","true","All"
+"courtyard-rescue","defeat","4","core.stage","entity:e3b39849d5d643c09704ef1ddc635a52","Return after defeat","false","All"

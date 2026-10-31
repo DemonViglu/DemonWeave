@@ -16,8 +16,10 @@ namespace DemonWeave.Unity
         public string Key { get; }
         public string Label { get; }
         public bool IsEvent { get; }
-        public WorldSignal(string role, string key, string label, bool isEvent = false)
-        { Role = role; Key = key; Label = label; IsEvent = isEvent; }
+        public Type ImplementationType { get; }
+        public string MethodName { get; }
+        public WorldSignal(string role, string key, string label, bool isEvent = false, Type implementationType = null, string methodName = null)
+        { Role = role; Key = key; Label = label; IsEvent = isEvent; ImplementationType = implementationType; MethodName = methodName; }
     }
 
     // The editor depends on this adapter contract, never on lighthouse-specific classes.
@@ -31,11 +33,11 @@ namespace DemonWeave.Unity
         CapabilityCatalog CreateCapabilities();
     }
 
-    [AttributeUsage(AttributeTargets.Field)]
+    [AttributeUsage(AttributeTargets.Parameter)]
     public sealed class CapabilityParameterAttribute : Attribute
     {
         public string Label { get; }
-        public bool EntityRole { get; set; }
         public CapabilityParameterAttribute(string label) { Label = label; }
     }
 }
+

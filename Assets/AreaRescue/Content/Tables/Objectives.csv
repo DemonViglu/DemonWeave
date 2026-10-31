@@ -1,0 +1,7 @@
+﻿"QuestId","NodeId","RouteId","Slot","ObjectiveId","Order","Label","Kind","Subject","Key","Required","Expected","State"
+"courtyard-rescue","enter","","Objectives","entered","0","Enter the marked courtyard","Fact","","entered","1","true","Completed"
+"courtyard-rescue","prepare","","Objectives","prepared","0","Wait for the gate and guards","Fact","","prepared","1","true","Completed"
+"courtyard-rescue","clear","","Objectives","cleared","0","Defeat this encounter's guards","Fact","","cleared","1","true","Completed"
+"courtyard-rescue","rescue","","Objectives","rescued","0","Release the captive","Fact","","rescued","1","true","Completed"
+"courtyard-rescue","rescue","","Objectives","dialogue","1","Finish the rescue conversation","Fact","","dialogue-finished","1","true","Completed"
+"courtyard-rescue","defeat","","Objectives","defeated","0","Player defeated during encounter","Fact","","player-defeated","1","true","Completed"

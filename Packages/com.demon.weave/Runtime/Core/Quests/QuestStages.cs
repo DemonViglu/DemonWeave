@@ -8,6 +8,8 @@ namespace DemonWeave.Quests
     public sealed class QuestStage
     {
         public string Id = "";
+        public string TypeId = "core.stage";
+        public string EntityRole = "";
         public string Title = "";
         public bool Required = true;
         public List<string> After = new List<string>();
@@ -18,7 +20,7 @@ namespace DemonWeave.Quests
         public List<QuestExec> FinishExec = new List<QuestExec>();
         public List<QuestRoute> Routes = new List<QuestRoute>();
         public List<RouteSwitch> Switches = new List<RouteSwitch>();
-        public QuestStage Copy() => new QuestStage { Id = Id, Title = Title, Required = Required,
+        public QuestStage Copy() => new QuestStage { Id = Id, TypeId = TypeId, EntityRole = EntityRole, Title = Title, Required = Required,
             After = After?.ToList(), OpenWhen = OpenWhen?.Copy(), Objectives = Objectives?.Select(x => x?.Copy()).ToList(), Completion = Completion,
             BeginExec = BeginExec?.Select(x => x?.Copy()).ToList(), FinishExec = FinishExec?.Select(x => x?.Copy()).ToList(),
             Routes = Routes?.Select(x => x?.Copy()).ToList(), Switches = Switches?.Select(x => x?.Copy()).ToList() };

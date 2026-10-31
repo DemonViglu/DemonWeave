@@ -1,0 +1,4 @@
+﻿"QuestId","NodeId","RouteId","Slot","ActionId","Order","CapabilityId"
+"courtyard-rescue","prepare","","BeginExec","opening","0","rescue.prepare"
+"courtyard-rescue","rescue","","BeginExec","allow-rescue","0","rescue.enable"
+"courtyard-rescue","defeat","","FinishExec","restore","0","rescue.restore"

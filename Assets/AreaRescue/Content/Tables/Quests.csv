@@ -1,0 +1,2 @@
+﻿"QuestId","Order","Title","ParentId","FinishCombination","FailCombination","CancelChildrenOnEnd"
+"courtyard-rescue","0","Rescue the captive","","All","Any","false"

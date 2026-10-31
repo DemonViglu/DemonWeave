@@ -1,0 +1,7 @@
+﻿"QuestId","NodeId","RouteId","SwitchId","ConditionId","ParentId","Order","Kind","Subject","Key","Expected","State"
+"courtyard-rescue","","","","root","","0","All","","","true","Completed"
+"courtyard-rescue","enter","","","root","","0","All","","","true","Completed"
+"courtyard-rescue","prepare","","","root","","0","All","","","true","Completed"
+"courtyard-rescue","clear","","","root","","0","All","","","true","Completed"
+"courtyard-rescue","rescue","","","root","","0","All","","","true","Completed"
+"courtyard-rescue","defeat","","","root","","0","Fact","","player-defeated","true","Completed"

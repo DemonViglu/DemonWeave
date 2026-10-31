@@ -1,0 +1,20 @@
+.weave-grid {
+    --grid-background-color: #22262c;
+    --line-color: rgba(150, 165, 185, 0.16);
+    --thick-line-color: rgba(175, 190, 210, 0.28);
+    --spacing: 24;
+}
+.weave-window { background-color: #252930; color: #d5d9df; font-size: 13px; }
+.weave-window .unity-button {
+    min-height: 22px;
+    border-radius: 3px;
+    background-color: #343a44;
+    border-color: #4b5360;
+    color: #d5d9df;
+    padding-left: 6px;
+    padding-right: 6px;
+}
+.weave-window .unity-button:hover { background-color: #465265; }
+.weave-window .unity-base-field { margin-top: 3px; margin-bottom: 3px; min-height: 22px; }
+.weave-window .unity-foldout { margin-top: 5px; margin-bottom: 5px; }
+.weave-window .unity-label { -unity-text-align: middle-left; }

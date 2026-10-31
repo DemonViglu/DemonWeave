@@ -12,21 +12,23 @@ namespace DemonWeave.Editor
     {
         public static IReadOnlyList<QuestDiagnostic> Validate(QuestBookAsset book, IQuestAuthoringHost host)
         {
-            if (!book) return new[] { new QuestDiagnostic("book", "required", "选择任务集。") };
+            if (!book) return new[] { new QuestDiagnostic("book", "required", "Select a Quest Collection.") };
             try
             {
+                var definitions = book.RuntimeDefinitions();
+                if (definitions.Count == 0) return Array.Empty<QuestDiagnostic>();
                 var bindings = host == null ? null : new QuestBindings(host.BindingEntries);
                 var catalog = host?.CreateCapabilities();
-                return QuestValidation.Validate(book.Quests,
+                return QuestValidation.Validate(definitions,
                     bindings == null ? (Func<string, bool>)null : role => bindings.Find(role),
                     catalog == null ? (Func<string, string, string>)null : catalog.Validate,
-                    host == null ? (Func<string, string, bool, string>)null : (role, key, isEvent) => host.Signals.Any(s => s.Role == role && s.Key == key && s.IsEvent == isEvent) ? "" : "未注册的事实/事件：" + role + "." + key);
+                    host == null ? (Func<string, string, bool, string>)null : (role, key, isEvent) => host.Signals.Any(s => s.Role == role && s.Key == key && s.IsEvent == isEvent) ? "" : "Unregistered fact/event: " + role + "." + key);
             }
             catch (Exception e) { return new[] { new QuestDiagnostic("book", "invalid", e.Message) }; }
         }
         public static void Edit(QuestBookAsset book, string label, Action<List<QuestDefinition>> edit)
         {
-            if (EditorApplication.isPlaying) throw new InvalidOperationException("退出 Play 后修改任务定义；运行实例使用快照。");
+            if (EditorApplication.isPlaying) throw new InvalidOperationException("Exit Play to edit definitions. Running instances use snapshots.");
             book.OnBeforeSerialize();
             Undo.RegisterCompleteObjectUndo(book, label);
             edit(book.Quests); book.OnBeforeSerialize(); EditorUtility.SetDirty(book);
@@ -60,17 +62,17 @@ namespace DemonWeave.Editor
         }
         public static string ConditionText(QuestCondition condition, Func<string, string> title)
         {
-            if (condition == null) return "缺少条件";
+            if (condition == null) return "Missing condition";
             if (condition.Kind == ConditionKind.QuestState) return title(condition.Subject) + " / " + Status(condition.State);
-            if (condition.Kind == ConditionKind.StageState) return "阶段 " + condition.Subject + " / " + Status(condition.State);
+            if (condition.Kind == ConditionKind.StageState) return "Node " + condition.Subject + " / " + Status(condition.State);
             if (condition.Kind == ConditionKind.Fact) return condition.Subject + "." + condition.Key + " = " + condition.Expected;
-            if (condition.Children == null || condition.Children.Count == 0) return condition.Kind == ConditionKind.All ? "无前置限制" : "任一条件组为空";
-            return (condition.Kind == ConditionKind.All ? "全部满足" : "任一满足") + "（" + string.Join("；", condition.Children.Select(c => ConditionText(c, title))) + "）";
+            if (condition.Children == null || condition.Children.Count == 0) return condition.Kind == ConditionKind.All ? "No prerequisites" : "Empty Any condition";
+            return (condition.Kind == ConditionKind.All ? "All" : "Any") + "（" + string.Join("；", condition.Children.Select(c => ConditionText(c, title))) + "）";
         }
         public static string Status(QuestStatus value)
         {
-            switch (value) { case QuestStatus.Waiting: return "待接取"; case QuestStatus.Active: return "进行中";
-                case QuestStatus.Completed: return "已完成"; case QuestStatus.Failed: return "失败"; default: return "已取消"; }
+            switch (value) { case QuestStatus.Waiting: return "Waiting"; case QuestStatus.Active: return "Active";
+                case QuestStatus.Completed: return "Completed"; case QuestStatus.Failed: return "Failure"; default: return "Cancelled"; }
         }
     }
 }
