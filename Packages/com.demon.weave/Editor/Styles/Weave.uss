@@ -18,3 +18,13 @@
 .weave-window .unity-base-field { margin-top: 3px; margin-bottom: 3px; min-height: 22px; }
 .weave-window .unity-foldout { margin-top: 5px; margin-bottom: 5px; }
 .weave-window .unity-label { -unity-text-align: middle-left; }
+.weave-window .unity-button.weave-source-link {
+    -unity-text-align: middle-left;
+    align-self: flex-start;
+    color: #a6cce0;
+    font-size: 11px;
+    background-color: transparent;
+    border-width: 0;
+    margin-left: 6px;
+}
+.weave-window .unity-button.weave-source-link:hover { color: #e7f6ff; background-color: #32404c; }

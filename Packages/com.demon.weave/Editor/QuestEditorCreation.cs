@@ -25,6 +25,10 @@ namespace DemonWeave.Editor
                 tooltip = "Return to the Quest Collection", name = "collection-breadcrumb"
             };
             breadcrumbs.Add(collection);
+            if (book) IconAction(breadcrumbs, "◎", UnityEditor.AssetDatabase.GetAssetPath(book), () => {
+                UnityEditor.Selection.activeObject = book;
+                UnityEditor.EditorGUIUtility.PingObject(book);
+            });
             var quest = book?.Quests.FirstOrDefault(q => q.Id == selectedId);
             if (showStages && quest != null) {
                 breadcrumbs.Add(new Label(" / "));

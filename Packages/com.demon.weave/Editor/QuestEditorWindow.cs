@@ -166,15 +166,19 @@ namespace DemonWeave.Editor
                     var selected = book.Quests.FirstOrDefault(q => q.Id == selectedId);
                     if (showStages && selected != null)
                     {
+                        var nodeTools = new Toolbar();
+                        var add = new ToolbarButton(() => AddStage(selected, null)) { text = "+ Add Node", tooltip = "Create an independent node. Drag Completed to the new node’s input to add a prerequisite." };
+                        add.SetEnabled(!EditorApplication.isPlaying); nodeTools.Add(add); graphArea.Add(nodeTools);
                         if (selected.Stages.Count == 0)
                         {
                             var empty = new VisualElement { style = { paddingLeft = 32, paddingTop = 40 } };
                             empty.Add(Heading("Empty Quest"));
-                            empty.Add(new Button(() => AddStage(selected, null)) { text = "Add Node", name = "add-first-node" });
+                            empty.Add(new Label("Add your first node using the toolbar above."));
                             empty.Add(new Button(() => ShowStageMenu(selected)) { text = "From Template…" });
                             graphArea.Add(empty);
                         }
                         else {
+                        var graphCapabilities = Host?.CreateCapabilities();
                         stageGraph = new QuestStageGraph(QuestBookAsset.Compile(selected, false), stageId => {
                             selectedStageId = stageId; detailSection = "Objective"; BuildInspector();
                             inspector.schedule.Execute(() => { var field = inspector.Q<VisualElement>("stage-" + stageId); if (field != null) inspector.ScrollTo(field); }).ExecuteLater(1);
@@ -182,7 +186,9 @@ namespace DemonWeave.Editor
                             var producer = authorProfile?.ProducerFor(Host, stage.OpenWhen);
                             var sources = producer == null ? Array.Empty<QuestStage>() : QuestBookAsset.Compile(selected, false).Stages.Where(s => s.Id != stage.Id && s.BeginExec.Concat(s.FinishExec).Any(e => authorProfile.Produces(Host, e, stage.OpenWhen))).ToArray();
                             return sources.Length == 1 ? sources[0] : null;
-                        }, AuthorCondition, ids => DeleteStages(selected, ids), (from, to) => Edit("Remove Node Dependency", () => selected.Stages.Single(s => s.Id == to).After.Remove(from)), (from, to) => ConnectStages(selected, from, to), () => AddStage(selected, null), nodePositions == null, () => ShowStageMenu(selected));
+                        }, AuthorCondition, ids => DeleteStages(selected, ids), (from, to) => Edit("Remove Node Dependency", () => selected.Stages.Single(s => s.Id == to).After.Remove(from)), (from, to) => ConnectStages(selected, from, to), () => AddStage(selected, null), nodePositions == null, () => ShowStageMenu(selected),
+                            (node, action) => graphCapabilities?.Find(action.CapabilityId, node.EntityRole)?.Label ?? action.CapabilityId,
+                            id => AddStage(selected, null, selected.Stages.Single(s => s.Id == id)));
                         graphArea.Add(stageGraph);
                         displayedStageQuestId = selectedId;
                         if (nodePositions != null) { stageGraph.RestorePositions(nodePositions); stageGraph.UpdateViewTransform(nodePan, nodeZoom); }
@@ -314,10 +320,20 @@ namespace DemonWeave.Editor
                 else if (string.IsNullOrEmpty(selectedStageId))
                     live.text = QuestAuthoringChecks.Status(instance.State) + "\n" + string.Join("\n", run.Explain(selectedId)) + "\n"
                         + string.Join("\n", instance.Stages.Select(s => s.Title + ": " + QuestAuthoringChecks.Status(s.State)));
-                else if (instance.Stage(selectedStageId) != null) live.text = string.Join("\n", run.ExplainStage(selectedId, selectedStageId));
+                else if (instance.Stage(selectedStageId) != null) live.text = string.Join("\n", run.ExplainStage(selectedId, selectedStageId, (role, key) => {
+                    var receiver = Host.BindingEntries.FirstOrDefault(b => b.Role == role)?.Target;
+                    return (receiver ? receiver.name : role) + " / " + (Host.Signals.FirstOrDefault(s => s.Role == role && s.Key == key).Label ?? key);
+                }));
                 else live.text = "This node is not in the running definition snapshot.";
                 if (Host != null && Host.BookAsset == book && Host.Activity.Count > 0)
-                    live.text += "\n\nRecent activity\n" + string.Join("\n", Host.Activity.Skip(Math.Max(0, Host.Activity.Count - 5)));
+                    {
+                    var log = Host.Activity.AsEnumerable();
+                    if (!string.IsNullOrEmpty(selectedStageId))
+                        log = log.Where(line => line.StartsWith(selectedId + "/" + selectedStageId + " ", StringComparison.Ordinal));
+                    var recent = log.Reverse().Take(5).Reverse().ToArray();
+                    if (recent.Length > 0) live.text += "\n\nRecent activity\n" + string.Join("\n", recent);
+                    else if (instance == null) live.text += "\n" + Host.Activity.Last();
+                }
                 return;
             }
             if (live != null)
@@ -345,13 +361,36 @@ namespace DemonWeave.Editor
         {
             var current = Host?.BindingEntries.FirstOrDefault(b => b.Role == value);
             var row = ItemRow(parent);
-            var field = new ObjectField(label) { objectType = entityOnly ? typeof(QuestEntity) : typeof(GameObject), allowSceneObjects = true,
+            var field = new ObjectField(entityOnly && SelectedNode != null ? "Node owner" : ObjectNames.NicifyVariableName(label)) { objectType = entityOnly ? typeof(QuestEntity) : typeof(GameObject), allowSceneObjects = true,
                 value = entityOnly ? (UnityEngine.Object)current?.Entity : current?.Target, name = "target-" + label,
                 tooltip = entityOnly ? "Choose the business component that inherits QuestEntity." : "An explicit scene-object argument. No identity component is required." };
-            field.style.flexGrow = 1; field.SetEnabled(Host != null && !EditorApplication.isPlaying); row.Add(field);
+            field.style.flexGrow = 1; field.style.minWidth = 0; field.labelElement.style.minWidth = 42; field.labelElement.style.width = entityOnly ? 76 : 42; field.SetEnabled(Host != null && !EditorApplication.isPlaying); row.Add(field);
+            var selector = field.Q(className: "unity-object-field__selector");
+            if (selector != null) selector.style.display = DisplayStyle.None;
+            var controls = entityOnly ? ItemRow(parent) : row;
+            if (entityOnly) field.labelElement.style.width = 96;
+            Button browse = null;
+            browse = new Button(() => {
+                if (!hostObject || EditorApplication.isPlaying) return;
+                var anchor = browse.worldBound;
+                var picker = new QuestScenePicker(hostObject.gameObject.scene, entityOnly, current?.Target, go => {
+                    if (field.panel == null || !hostObject || EditorApplication.isPlaying) return;
+                    field.value = entityOnly && go ? (UnityEngine.Object)go.GetComponent<QuestEntity>() : go;
+                });
+                UnityEditor.PopupWindow.Show(anchor, picker);
+            }) { text = "Browse…", tooltip = "Search this scene or expand the Hierarchy" };
+            browse.SetEnabled(Host != null && !EditorApplication.isPlaying); controls.Add(browse);
             GameObject ObjectOf(UnityEngine.Object obj) => obj is Component c ? c.gameObject : obj as GameObject;
-            IconAction(row, "◎", "Select in Hierarchy", () => { var go = ObjectOf(field.value); if(go) {Selection.activeGameObject = go; EditorGUIUtility.PingObject(go);} }).SetEnabled(current?.Target);
-            if(entityOnly) IconAction(row,"{}","Open Entity implementation",()=>OpenImplementation(current.Entity.GetType())).SetEnabled(current?.Entity);
+            IconAction(controls, "◎", "Select in Hierarchy", () => { var go = ObjectOf(field.value); if(go) {Selection.activeGameObject = go; EditorGUIUtility.PingObject(go);} }).SetEnabled(current?.Target);
+            if (entityOnly && current?.Entity)
+            {
+                var instance = current.Entity;
+                var inspect = new Button(() => EditorUtility.OpenPropertyEditor(instance)) {
+                    text = "Inspect instance", tooltip = instance.gameObject.scene.name + " / " + instance.gameObject.name + " / " + instance.GetType().Name
+                };
+                inspect.style.alignSelf = Align.FlexStart;
+                controls.Add(inspect);
+            }
             field.RegisterValueChangedCallback(e => {
                 var target = ObjectOf(e.newValue);
                 var entity = target ? target.GetComponent<QuestEntity>() : null;
@@ -361,6 +400,16 @@ namespace DemonWeave.Editor
                     field.SetValueWithoutNotify(e.previousValue); UpdateStatus(); return;
                 }
                 Undo.IncrementCurrentGroup(); int group = Undo.GetCurrentGroup();
+                if (entityOnly && SelectedNode != null && current?.Target && current.Target != target)
+                {
+                    var node = SelectedNode;
+                    var uses = OwnerUses(node).ToArray();
+                    if (uses.Length > 0 && !EditorUtility.DisplayDialog("Change Entity on " + node.Title,
+                        current.Target.name + " → " + (target ? target.name : "Unassigned") + "\n\n" +
+                        string.Join("\n", uses) + "\n\nThese references follow this node’s Entity. Explicit action arguments keep their values. Other nodes keep their bindings.",
+                        "Change Entity", "Cancel"))
+                    { field.SetValueWithoutNotify(e.previousValue); return; }
+                }
                 if(!target) { changed(""); return; }
                 if(entity && (string.IsNullOrEmpty(entity.Id) || UnityEngine.Object.FindObjectsByType<QuestEntity>(FindObjectsSortMode.None).Any(other=>other!=entity&&other.Id==entity.Id)))
                 {

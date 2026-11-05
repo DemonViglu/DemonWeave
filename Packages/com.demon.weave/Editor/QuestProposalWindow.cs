@@ -55,7 +55,7 @@ namespace DemonWeave.Editor
         }
         private void Review()
         {
-            try { prepared = QuestProposalReview.Prepare(book, Host, proposal.value); preview.text = prepared.Summary + "\n\n" + prepared.Diff; status.text = "Valid proposal. Review the diff before applying."; apply.SetEnabled(!EditorApplication.isPlaying); }
+            try { prepared = QuestProposalReview.Prepare(book, Host, proposal.value); preview.text = AssetDatabase.GetAssetPath(book) + "\n" + prepared.Summary + "\n\n" + prepared.Diff; status.text = "Valid proposal. Review the diff before applying."; apply.SetEnabled(!EditorApplication.isPlaying); }
             catch (Exception e) { prepared = null; preview.text = ""; status.text = "Proposal rejected: " + e.Message; apply.SetEnabled(false); }
         }
         private string BuildPrompt()

@@ -13,7 +13,7 @@ namespace DemonWeave.Editor
         private readonly Dictionary<string, Node> stageNodes = new Dictionary<string, Node>();
         private readonly System.Action createNode;
         private readonly System.Action fromTemplate;
-        public QuestStageGraph(QuestDefinition quest, System.Action<string> selected = null, System.Func<QuestStage, QuestStage> outcomeSource = null, System.Func<QuestCondition, string> outcomeLabel = null, System.Action<IReadOnlyList<string>> deleted = null, System.Action<string,string> unlinked = null, System.Action<string,string> linked = null, System.Action createNode = null, bool frameOnOpen = true, System.Action fromTemplate = null)
+        public QuestStageGraph(QuestDefinition quest, System.Action<string> selected = null, System.Func<QuestStage, QuestStage> outcomeSource = null, System.Func<QuestCondition, string> outcomeLabel = null, System.Action<IReadOnlyList<string>> deleted = null, System.Action<string,string> unlinked = null, System.Action<string,string> linked = null, System.Action createNode = null, bool frameOnOpen = true, System.Action fromTemplate = null, System.Func<QuestStage, QuestExec, string> actionLabel = null, System.Action<string> addSuccessor = null)
         {
             this.createNode = createNode;
             this.fromTemplate = fromTemplate;
@@ -38,6 +38,9 @@ namespace DemonWeave.Editor
                 node.extensionContainer.style.paddingTop = 12; node.extensionContainer.style.paddingBottom = 12;
                 node.extensionContainer.style.minHeight = 48;
                 node.RegisterCallback<MouseDownEvent>(_ => selected?.Invoke(stage.Id));
+                if (addSuccessor != null)
+                    node.AddManipulator(new ContextualMenuManipulator(evt => evt.menu.AppendAction("Add Node After This", _ => addSuccessor(stage.Id),
+                        _ => UnityEditor.EditorApplication.isPlaying ? DropdownMenuAction.Status.Disabled : DropdownMenuAction.Status.Normal)));
                 node.style.width = 300;
                 void Describe(string text)
                 {
@@ -55,7 +58,14 @@ namespace DemonWeave.Editor
                 node.inputContainer.Add(input); node.outputContainer.Add(output);
                 if (!stage.Required) Describe("Optional");
                 if (stage.OpenWhen.Kind != ConditionKind.All || stage.OpenWhen.Children.Count > 0) Describe("Condition: " + outcomeLabel?.Invoke(stage.OpenWhen));
-                foreach (var objective in stage.Objectives) Describe("Objective: " + objective.Label);
+                foreach (var action in stage.BeginExec) Describe("On enter  ·  " + (actionLabel?.Invoke(stage, action) ?? action.CapabilityId));
+                var join = stage.Objectives.Count < 2 ? "Wait for" : stage.Completion == RuleCombination.All ? "Wait for all" : "Wait for any";
+                var trigger = stage.OpenWhen;
+                bool sameFact = stage.Objectives.Count == 1 && trigger.Kind == ConditionKind.Fact &&
+                    stage.Objectives[0].Kind == ContentKind.Fact && stage.Objectives[0].Subject == trigger.Subject &&
+                    stage.Objectives[0].Key == trigger.Key && stage.Objectives[0].Expected == trigger.Expected;
+                if (!sameFact) Describe(stage.Objectives.Count == 0 ? "Choose an objective" : join + "  ·  " + string.Join(" / ", stage.Objectives.Select(o => o.Label)));
+                foreach (var action in stage.FinishExec) Describe("On complete  ·  " + (actionLabel?.Invoke(stage, action) ?? action.CapabilityId));
                 foreach (var route in stage.Routes) Describe("Route: " + route.Title);
                 foreach (var change in stage.Switches) Describe("Switch: " + change.From + " → " + change.To);
                 node.RefreshExpandedState(); node.RefreshPorts();
@@ -68,7 +78,7 @@ namespace DemonWeave.Editor
                 var producer = outcomeSource?.Invoke(stage);
                 if (producer == null || !nodes.TryGetValue(producer.Id, out var source)) continue;
                 var port = source.InstantiatePort(Orientation.Horizontal, Direction.Output, Port.Capacity.Multi, typeof(bool));
-                port.portName = outcomeLabel?.Invoke(stage.OpenWhen) ?? "Outputs";
+                port.portName = "Starts monitoring"; port.tooltip = outcomeLabel?.Invoke(stage.OpenWhen);
                 port.portColor = new Color(1,.65f,.35f); port.pickingMode = PickingMode.Ignore;
                 source.outputContainer.Add(port); source.RefreshPorts(); source.RefreshExpandedState();
                 var outcomeEdge = port.ConnectTo(inputs[stage.Id]);

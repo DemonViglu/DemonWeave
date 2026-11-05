@@ -16,6 +16,9 @@ namespace DemonWeave.AreaRescue
         public AnimationTrack DoorTrack;
         public SignalAsset ReleaseSignal;
         [SerializeField] private RescueCheckpoint checkpoint;
+        [Header("Defeat response")]
+        [Tooltip("Shown on the HUD when this encounter waits for a manual retry.")]
+        [TextArea(2, 4), SerializeField] private string retryMessage = "Defeated. Select RETRY CHECKPOINT.";
         private RescueEncounterSession session;
         public EncounterSpawner Spawner => GetComponent<EncounterSpawner>();
         public Guid AttemptId => session?.Id ?? Guid.Empty;
@@ -62,7 +65,7 @@ namespace DemonWeave.AreaRescue
         [QuestAction("rescue.restore", Label = "Restore encounter checkpoint", Validator = nameof(CheckCheckpoint))]
         public void RestoreCheckpoint() => checkpoint.Restore();
         [QuestAction("rescue.wait-retry", Label = "Wait for player to retry", Validator = nameof(CheckCheckpoint))]
-        public void WaitForRetry() => checkpoint.WaitForRetry();
+        public void WaitForRetry() => checkpoint.WaitForRetry(retryMessage);
         [UnityEngine.Scripting.Preserve]
         public string CheckCheckpoint() => checkpoint ? "" : "Assign the internal checkpoint on this Entity.";
         private void Update() => session?.Tick();

@@ -72,6 +72,7 @@ namespace DemonWeave.Editor
             IconAction(header, "#", stage == null ? "Copy QuestId" : "Copy NodeId", () => EditorGUIUtility.systemCopyBuffer = stage?.Id ?? quest.Id);
             if (stage != null) IconAction(header, "←", "Quest Properties", () => SelectStage(null));
             IconAction(header, "×", stage == null ? "Delete Quest" : "Delete Node", () => { if (stage == null) RemoveQuest(quest); else DeleteStages(quest, new[] { stage.Id }); }).SetEnabled(!EditorApplication.isPlaying);
+            BuildAuthorProgress();
             var content = new VisualElement { style = { paddingTop = 8 } }; content.SetEnabled(!EditorApplication.isPlaying); inspector.Add(content);
             Text(content, "Name", stage?.Title ?? quest.Title, value => Edit("Rename", () => { if (stage == null) quest.Title = value; else stage.Title = value; }));
             if (stage == null)
@@ -82,7 +83,6 @@ namespace DemonWeave.Editor
                 IconAction(row, "+", "Add Node", () => AddStage(quest, null));
                 row.Add(new Button(() => ShowStageMenu(quest)) { text = "From Template…" });
                 if (QuestBookAsset.IsDraft(quest)) content.Add(new Label("Draft"));
-                BuildAuthorProgress();
                 return;
             }
             if (Host == null) content.Add(new HelpBox("No Scene Host is connected. Node definitions remain editable; open the gameplay scene or select a Scene Host in Preview Context to choose registered actions, facts and scene objects.", HelpBoxMessageType.Info));
@@ -149,8 +149,33 @@ namespace DemonWeave.Editor
                 var saved = detailSection; detailSection = "Routes"; BuildStages(routes, quest); detailSection = saved;
             }
             BuildExecs(content, stage.FinishExec, "On Complete");
-            BuildAuthorProgress();
         }
+        private IEnumerable<string> OwnerUses(QuestStage stage)
+        {
+            var catalog = Host?.CreateCapabilities();
+            string ActionName(QuestExec action) => catalog?.Find(action.CapabilityId, stage.EntityRole)?.Label ?? action.CapabilityId;
+            IEnumerable<string> Conditions(QuestCondition rule)
+            {
+                if (rule == null) yield break;
+                if (rule.Kind == ConditionKind.Fact) yield return ConditionLabel(stage.EntityRole, rule.Key);
+                if (rule.Children == null) yield break;
+                foreach (var child in rule.Children)
+                    foreach (var key in Conditions(child)) yield return key;
+            }
+            foreach (var key in Conditions(stage.OpenWhen)) yield return "Additional Conditions / " + key;
+            foreach (var action in stage.BeginExec) yield return "On Enter / " + ActionName(action);
+            foreach (var goal in stage.Objectives.Where(g => g.Kind == ContentKind.Fact || g.Kind == ContentKind.EventCount)) yield return "Objective / " + goal.Label;
+            foreach (var action in stage.FinishExec) yield return "On Complete / " + ActionName(action);
+            foreach (var route in stage.Routes)
+            {
+                foreach (var key in Conditions(route.AvailableWhen)) yield return route.Title + " / " + key;
+                foreach (var goal in route.Objectives.Where(g => g.Kind == ContentKind.Fact || g.Kind == ContentKind.EventCount)) yield return route.Title + " / " + goal.Label;
+                foreach (var action in route.SelectedExec) yield return route.Title + " / " + ActionName(action);
+            }
+            foreach (var change in stage.Switches)
+                foreach (var key in Conditions(change.When)) yield return change.From + " → " + change.To + " / " + key;
+        }
+
         private static void BindNodeEntity(QuestStage node, string role)
         {
             void Condition(QuestCondition c) { if(c==null)return; if(c.Kind==ConditionKind.Fact)c.Subject=""; if(c.Children!=null)foreach(var child in c.Children)Condition(child); }
@@ -177,11 +202,12 @@ namespace DemonWeave.Editor
                 Id = template.TypeId, Label = template.DisplayName, Choose = () => AddStage(quest, template)
             }));
         }
-        private void AddStage(QuestDefinition quest, QuestNodeType template)
+        private void AddStage(QuestDefinition quest, QuestNodeType template, QuestStage predecessor = null)
         {
             if (EditorApplication.isPlaying) return;
             var node = template ? template.CreateNode() : new QuestStage { Id = "node-" + Guid.NewGuid().ToString("N"), Title = "New Node" };
             if (!template) { int suffix = 2; while (quest.Stages.Any(s => s.Title == node.Title)) node.Title = "New Node " + suffix++; }
+            if (predecessor != null) node.After.Add(predecessor.Id);
             selectedId = quest.Id; selectedStageId = node.Id; showStages = true;
             Edit("Add Node", () => quest.Stages.Add(node));
             stageGraph?.SelectStage(node.Id);

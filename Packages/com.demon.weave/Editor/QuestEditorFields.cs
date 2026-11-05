@@ -75,7 +75,7 @@ namespace DemonWeave.Editor
             Choice(selection, isEvent ? "Event" : "Condition", signals.Select(s => s.Key).Distinct().ToList(), value, changed,
                 key => signals.Any(s => s.Key == key) ? signals.First(s => s.Key == key).Label : "Select / " + key);
             var implementation = signals.FirstOrDefault(s => s.Key == value).ImplementationType;
-            IconAction(row, "{}", "Open condition method", () => OpenImplementation(implementation, signals.FirstOrDefault(s => s.Key == value).MethodName)).SetEnabled(implementation != null);
+            MethodLink(parent, implementation, signals.FirstOrDefault(s => s.Key == value).MethodName);
         }
         private void BuildContents(VisualElement parent, QuestDefinition quest, bool failure)
         {
@@ -153,16 +153,16 @@ namespace DemonWeave.Editor
                     Id = chosen.Id, Label = chosen.Label, Choose = () => Edit("Change Action", () => { exec.CapabilityId = chosen.Id; exec.ArgumentsJson = DefaultArguments(chosen, target); })
                 }))) { text = (entry?.Label ?? "Select Action…") + "  ▾", name = "choose-action-" + exec.Id, tooltip = exec.CapabilityId };
                 choose.style.flexGrow = 1; choose.style.unityTextAlign = TextAnchor.MiddleLeft; choose.SetEnabled(options.Length > 0); row.Add(choose);
-                IconAction(row, "{}", "Open action method", () => OpenImplementation(entry)).SetEnabled(entry != null);
                 IconAction(row, "×", "Remove Action", () => Edit("Remove Action", () => executions.Remove(exec)));
                 if (entry != null)
                 {
+                    MethodLink(parent, entry.ImplementationType, entry.MethodName);
                     BuildParameters(parent, exec, entry);
                     var checkedArgs = JObject.Parse(exec.ArgumentsJson); if (SelectedNode != null) checkedArgs[CapabilityCatalog.TargetKey] = SelectedNode.EntityRole;
                     var error = catalog.Validate(exec.CapabilityId, checkedArgs.ToString(Formatting.None));
                     if (!string.IsNullOrEmpty(error)) parent.Add(new HelpBox(error, HelpBoxMessageType.Error));
                 }
-                else parent.Add(new HelpBox(string.IsNullOrEmpty(target) ? "Select a target object first." : "Choose a [QuestAction] method on this object. Only marked methods are listed.", HelpBoxMessageType.Info));
+                else parent.Add(new HelpBox(string.IsNullOrEmpty(target) ? "Select a target object first." : "Choose an existing action on this Entity. To add a new behavior, implement a [QuestAction] method on its business component.", HelpBoxMessageType.Info));
             }
         }
         private string DefaultArguments(CapabilityDescriptor descriptor, string entity)
@@ -171,8 +171,12 @@ namespace DemonWeave.Editor
             if (SelectedNode != null) args.Remove(CapabilityCatalog.TargetKey);
             return args.ToString(Formatting.None);
         }
-        private static void OpenImplementation(CapabilityDescriptor descriptor)
-            => OpenImplementation(descriptor?.ImplementationType, descriptor?.MethodName);
+        private static void MethodLink(VisualElement parent, Type type, string method)
+        {
+            if (type == null || string.IsNullOrEmpty(method)) return;
+            var link = new Button(() => OpenImplementation(type, method)) { text = type.Name + "." + method + "()", tooltip = "Open C# implementation" };
+            link.AddToClassList("weave-source-link"); parent.Add(link);
+        }
         private static void OpenImplementation(Type implementation, string methodName = null)
         {
             var name = implementation?.Name;
@@ -180,11 +184,11 @@ namespace DemonWeave.Editor
             foreach (var guid in AssetDatabase.FindAssets(name + " t:MonoScript"))
             {
                 var script = AssetDatabase.LoadAssetAtPath<MonoScript>(AssetDatabase.GUIDToAssetPath(guid));
-                if (script && (script.GetClass() == implementation || script.name == name)) {
+                if (script && (script.GetClass() == implementation)) {
                     int line = 1;
                     if (!string.IsNullOrEmpty(methodName)) {
                         var lines = script.text.Split('\n');
-                        var found = Array.FindIndex(lines, text => System.Text.RegularExpressions.Regex.IsMatch(text, @"\b" + System.Text.RegularExpressions.Regex.Escape(methodName) + @"\s*\("));
+                        var found = Array.FindIndex(lines, text => System.Text.RegularExpressions.Regex.IsMatch(text, @"\bpublic\s+[^;{}()]+?\s+" + System.Text.RegularExpressions.Regex.Escape(methodName) + @"\s*\("));
                         if (found >= 0) line = found + 1;
                     }
                     AssetDatabase.OpenAsset(script, line); break;

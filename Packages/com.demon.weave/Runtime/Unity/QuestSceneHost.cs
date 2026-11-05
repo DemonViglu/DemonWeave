@@ -50,7 +50,7 @@ namespace DemonWeave.Unity
                 Record(notice.QuestId + "/" + notice.StageId + " " + notice.Kind + ": " + notice.Detail);
                 if (notice.Kind != QuestNoticeKind.Exec || !ActiveRun.MayExecute(notice)) continue;
                 var result = capabilities.Execute(notice.Execution.CapabilityId, notice.Execution.ArgumentsJson);
-                Record(notice.Execution.CapabilityId + ": " + (result.Success ? "OK / " : "Failed / ") + result.Message);
+                Record(notice.QuestId + "/" + notice.StageId + " " + notice.Execution.CapabilityId + ": " + (result.Success ? "OK / " : "Failed / ") + result.Message);
                 // Only the next fact evaluation can complete a Quest, never the action return value itself.
             }
         }

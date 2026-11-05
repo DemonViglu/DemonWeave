@@ -37,7 +37,7 @@ namespace DemonWeave.AreaRescue
             Recovering = true; RecoveryCount++; Feedback = "Returning to the courtyard checkpoint…";
             EndAttempt(); recovery = StartCoroutine(RestoreAfterCleanup());
         }
-        public void WaitForRetry() { if (Stopped) return; EndAttempt(); Feedback = "Defeated. Select RETRY CHECKPOINT."; }
+        public void WaitForRetry(string message = "Defeated. Select RETRY CHECKPOINT.") { if (Stopped) return; EndAttempt(); Feedback = message; }
         private void EndAttempt()
         {
             AttemptId = Guid.NewGuid(); Quest.StopRun();

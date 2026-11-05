@@ -131,13 +131,39 @@ namespace DemonWeave.Quests
             { stage.State = QuestStatus.Cancelled; StageNotice(owner, stage, QuestNoticeKind.State, reason); }
         }
         public IReadOnlyList<string> ExplainStage(string questId, string stageId)
+        => ExplainStage(questId, stageId, null);
+
+        public IReadOnlyList<string> ExplainStage(string questId, string stageId, Func<string, string, string> factName)
         {
             var owner = Find(questId); var stage = owner?.Stage(stageId) ?? throw new ArgumentException("Unknown stage.");
+            string Fact(string role, string key, bool expected)
+                => (factName?.Invoke(role, key) ?? role + "." + key) + " = " + (world.ReadFact(role, key)?.ToString() ?? "unknown") + " (needs " + expected + ")";
             var result = new List<string> { stage.Title + ": " + stage.State };
             if (IsClosed) { result.Add("Run closed."); return result; }
             foreach (var prerequisite in stage.Definition.After) result.Add("After " + owner.Stage(prerequisite)?.Title + ": " + owner.Stage(prerequisite)?.State);
-            if (stage.State == QuestStatus.Waiting) result.Add("Open conditions: " + Evaluate(stage.Definition.OpenWhen, owner));
-            foreach (var goal in stage.Definition.Objectives) result.Add(goal.Label + ": " + stage.Progress(goal.Id) + "/" + goal.Required);
+            void Gate(QuestCondition rule, string indent)
+            {
+                switch (rule.Kind)
+                {
+                    case ConditionKind.All:
+                    case ConditionKind.Any:
+                        if (rule.Children.Count == 0 && rule.Kind == ConditionKind.All) return;
+                        result.Add(indent + rule.Kind + " conditions: " + Evaluate(rule, owner));
+                        foreach (var child in rule.Children) Gate(child, indent + "  ");
+                        break;
+                    case ConditionKind.Fact: result.Add(indent + Fact(rule.Subject, rule.Key, rule.Expected)); break;
+                    case ConditionKind.StageState: result.Add(indent + owner.Stage(rule.Subject)?.Title + " = " + owner.Stage(rule.Subject)?.State + " (needs " + rule.State + ")"); break;
+                    case ConditionKind.QuestState: result.Add(indent + Find(rule.Subject)?.Title + " = " + Find(rule.Subject)?.State + " (needs " + rule.State + ")"); break;
+                }
+            }
+            if (owner.State != QuestStatus.Active) result.Add("Quest: " + owner.State);
+            if (stage.State == QuestStatus.Waiting) Gate(stage.Definition.OpenWhen, "Start when  ");
+            foreach (var goal in stage.Definition.Objectives)
+            {
+                if (stage.State == QuestStatus.Active && goal.Kind == ContentKind.Fact)
+                    result.Add(goal.Label + " — " + Fact(goal.Subject, goal.Key, goal.Expected));
+                else result.Add(goal.Label + ": " + stage.Progress(goal.Id) + "/" + goal.Required);
+            }
             foreach (var route in stage.Definition.Routes)
             {
                 result.Add(route.Title + ": " + (stage.SelectedRouteId == route.Id ? "selected" : stage.ClosedRoutes.Contains(route.Id) ? "closed" : Evaluate(route.AvailableWhen, owner) ? "available" : "unavailable"));
