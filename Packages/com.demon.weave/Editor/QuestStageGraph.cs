@@ -219,8 +219,8 @@ namespace DemonWeave.Editor
             foreach (var pair in stageNodes)
             {
                 var state = instance?.Stage(pair.Key)?.State;
-                pair.Value.titleContainer.style.backgroundColor = state == QuestStatus.Active ? new Color(.39f,.30f,.14f) : state == QuestStatus.Completed ? new Color(.14f,.32f,.28f) : new Color(.16f,.21f,.29f);
-                pair.Value.tooltip = state.HasValue ? QuestAuthoringChecks.Status(state.Value) : "Not running";
+                pair.Value.titleContainer.style.backgroundColor = instance?.Stage(pair.Key)?.IsPaused == true ? new Color(.25f,.28f,.45f) : state == QuestStatus.Active ? new Color(.39f,.30f,.14f) : state == QuestStatus.Completed ? new Color(.14f,.32f,.28f) : new Color(.16f,.21f,.29f);
+                pair.Value.tooltip = instance?.Stage(pair.Key)?.IsPaused == true ? "Paused by running condition" : state.HasValue ? QuestAuthoringChecks.Status(state.Value) : "Not running";
             }
         }
         public void SelectStage(string id)

@@ -6,6 +6,9 @@ namespace DemonWeave.TriggerBranch
     {
         public float DegreesPerSecond = 90;
         public bool IsRotating { get; private set; }
+        private Quaternion initialRotation;
+        private void Awake() => initialRotation = transform.localRotation;
+        public void ResetRotation() { IsRotating = false; transform.localRotation = initialRotation; }
         public void StartRotating() => IsRotating = true;
         private void Update()
         {

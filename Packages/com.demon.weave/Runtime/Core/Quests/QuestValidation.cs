@@ -50,6 +50,8 @@ namespace DemonWeave.Quests
                 if (!Enum.IsDefined(typeof(ConditionKind), rule.Kind)) Error(path + ".kind", "kind.unknown", "Unsupported condition kind.");
                 else if (rule.Kind == ConditionKind.QuestState)
                 { Reference(rule.Subject, path + ".subject"); if (!Enum.IsDefined(typeof(QuestStatus), rule.State)) Error(path + ".state", "state.invalid", "Unknown quest state."); }
+                else if (rule.Kind == ConditionKind.WorldFact) { if (string.IsNullOrWhiteSpace(rule.Subject)) Error(path, "world.fact", "Choose a world fact."); }
+                else if (rule.Kind == ConditionKind.ExternalQuestCompleted) { if (string.IsNullOrWhiteSpace(rule.Subject) || string.IsNullOrWhiteSpace(rule.Key)) Error(path, "world.quest", "Choose a source collection and Quest."); }
                 else if (rule.Kind == ConditionKind.Fact) FactOrEvent(rule.Subject, rule.Key, path);
                 else if (rule.Kind == ConditionKind.StageState) StageReference(rule.Subject, rule.State, path, stages);
                 else if (rule.Kind == ConditionKind.StageResult) {
@@ -125,7 +127,7 @@ namespace DemonWeave.Quests
                         if (c.Kind == ConditionKind.StageResult) yield return c;
                         if (c.Children != null) foreach (var child in c.Children) foreach (var r in Results(child)) yield return r;
                     }
-                    foreach (var input in Results(stage.OpenWhen)) {
+                    foreach (var input in Results(stage.OpenWhen).Concat(Results(stage.RunWhen)).Concat(Results(stage.InterruptWhen))) {
                         var source = definition.Stages.FirstOrDefault(s => s?.Id == input.Subject);
                         if (source == stage || source?.Results?.Contains(input.Key) != true) Error(p + ".openWhen", "result.missing", "Result source or output is missing: " + input.Subject + "/" + input.Key);
                     }
@@ -138,6 +140,8 @@ namespace DemonWeave.Quests
                     if (stage.Results?.Count > 1 && stage.Required && string.IsNullOrEmpty(stage.FinishResult)) Error(p, "result.terminal", "Choose which result reaches Finish.");
                     if (stage.Results?.Count > 0 && (stage.Objectives.Count > 0 || stage.BeginExec.Count > 0 || stage.FinishExec.Count > 0 || stage.Routes.Count > 0))
                         Error(p, "entity.mixed", "Entity nodes own execution and completion; remove legacy actions/objectives/routes explicitly.");
+                    Condition(stage.RunWhen, p + ".runWhen", 0, new HashSet<QuestCondition>(), ids);
+                    if (stage.InterruptWhen != null) Condition(stage.InterruptWhen, p + ".interruptWhen", 0, new HashSet<QuestCondition>(), ids);
                     Condition(stage.OpenWhen, p + ".openWhen", 0, new HashSet<QuestCondition>(), ids);
                     Contents(stage.Objectives, p + ".objectives", new HashSet<string>(), ids);
                     if (stage.Results == null || stage.Results.Any(string.IsNullOrWhiteSpace) || stage.Results.Distinct().Count() != stage.Results.Count) Error(p + ".results", "result.invalid", "Results must be unique nonempty names.");
@@ -176,6 +180,8 @@ namespace DemonWeave.Quests
                 while (!string.IsNullOrEmpty(parent) && byId.TryGetValue(parent, out var ancestor))
                 { if (!parentIds.Add(parent)) { Error(path + ".parentId", "parent.cycle", "Parent ownership must not form a cycle."); break; } parent = ancestor.ParentId; }
                 Condition(definition.Accept, path + ".accept", 0, new HashSet<QuestCondition>());
+                Condition(definition.RunWhen, path + ".runWhen", 0, new HashSet<QuestCondition>());
+                if (definition.InterruptWhen != null) Condition(definition.InterruptWhen, path + ".interruptWhen", 0, new HashSet<QuestCondition>());
                 if (!Enum.IsDefined(typeof(RuleCombination), definition.FinishCombination) || !Enum.IsDefined(typeof(RuleCombination), definition.FailCombination))
                     Error(path, "combination.invalid", "Use All or Any.");
                 var contentIds = new HashSet<string>(StringComparer.Ordinal);

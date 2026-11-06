@@ -20,6 +20,8 @@ public sealed class #SCRIPTNAME# : QuestEntity<#SCRIPTNAME#Result>
             // Start gameplay here. For an immediate operation:
             Finish(#SCRIPTNAME#Result.Done);
         }
+        // Use ActiveTime for timers; it excludes paused time.
+        // Override OnPause / OnResume to suspend external gameplay when necessary.
         // Override OnTick for polling, and OnStop to unsubscribe/cancel gameplay.
         // OnStop runs once on completion, cancellation, or runner shutdown.
     }

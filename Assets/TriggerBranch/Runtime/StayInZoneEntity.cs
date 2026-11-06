@@ -33,20 +33,28 @@ namespace DemonWeave.TriggerBranch
             }
             private void Enter()
             {
-                if (entered) return;
-                entered = true; enteredAt = Time.timeAsDouble;
+                if (entered || IsPaused) return;
+                entered = true; enteredAt = ActiveTime;
             }
             private void Leave()
             {
-                if (entered) Finish(Time.timeAsDouble - enteredAt >= seconds ? StayResult.Stayed : StayResult.LeftEarly);
+                if (entered && !IsPaused) Finish(ActiveTime - enteredAt >= seconds ? StayResult.Stayed : StayResult.LeftEarly);
             }
             protected override void OnTick()
             {
                 if (!zone || !zone.isActiveAndEnabled) throw new System.InvalidOperationException("Trigger was removed or disabled.");
                 if (!entered) return;
-                var elapsed = Time.timeAsDouble - enteredAt;
+                var elapsed = ActiveTime - enteredAt;
                 Status = $"Inside zone: {elapsed:0.0} / {seconds:0.0} s";
                 if (zone.IsInside && elapsed >= seconds) Finish(StayResult.Stayed);
+            }
+            protected override void OnPause() { Status = "Paused"; }
+            protected override void OnResume()
+            {
+                if (!zone) throw new System.InvalidOperationException("Trigger was removed.");
+                Status = entered ? "Resuming zone timer" : "Waiting for player to enter";
+                if (!entered && zone.IsInside) Enter();
+                else if (entered && !zone.IsInside) Leave();
             }
             protected override void OnStop()
             {

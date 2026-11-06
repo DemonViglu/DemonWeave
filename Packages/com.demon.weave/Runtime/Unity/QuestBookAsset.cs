@@ -30,6 +30,7 @@ namespace DemonWeave.Unity
                 : ParseDefinitions(definitionJson);
             set => definitions = value ?? throw new ArgumentNullException(nameof(value));
         }
+        private void OnValidate() { if (string.IsNullOrEmpty(Id)) Id = Guid.NewGuid().ToString("N"); }
         public bool HasSerializedDefinition => !string.IsNullOrEmpty(definitionJson);
         // A saved definition without a completion contract is an authoring draft.
         public static bool IsDraft(QuestDefinition quest) => quest != null && quest.Finish != null && quest.Stages != null
@@ -77,7 +78,7 @@ namespace DemonWeave.Unity
                         args[CapabilityCatalog.TargetKey] = owner; action.ArgumentsJson = args.ToString(Formatting.None);
                     }
                 }
-                BindCondition(node.OpenWhen); BindGoals(node.Objectives); BindActions(node.BeginExec); BindActions(node.FinishExec);
+                BindCondition(node.OpenWhen); BindCondition(node.RunWhen); BindCondition(node.InterruptWhen); BindGoals(node.Objectives); BindActions(node.BeginExec); BindActions(node.FinishExec);
                 foreach (var route in node.Routes) { BindCondition(route.AvailableWhen); BindGoals(route.Objectives); BindActions(route.SelectedExec); }
                 foreach (var change in node.Switches) BindCondition(change.When);
             }

@@ -88,11 +88,13 @@ namespace DemonWeave.Editor
             {
                 var conditions = new Foldout { text = "Activation Conditions", value = false }; content.Add(conditions);
                 BuildCondition(conditions, quest.Accept, value => quest.Accept = value, 0);
+                BuildExecutionRules(content, quest.RunWhen, value => quest.RunWhen = value, quest.InterruptWhen, value => quest.InterruptWhen = value);
                 return;
             }
             if (stage.Control != QuestControl.None)
             {
                 content.Add(new Label(stage.Control == QuestControl.All ? "Wait for every connected input." : stage.Control == QuestControl.Any ? "Continue on the first input; other running nodes are not cancelled." : "Activate all connected successors.") { style = { whiteSpace = WhiteSpace.Normal } });
+                BuildExecutionRules(content, stage.RunWhen, value => stage.RunWhen = value, stage.InterruptWhen, value => stage.InterruptWhen = value);
                 CommentField(content, stage.Comment ?? "", value => Edit("Edit Comment", () => stage.Comment = value));
                 return;
             }
@@ -140,6 +142,7 @@ namespace DemonWeave.Editor
                     if (!string.IsNullOrEmpty(error)) content.Add(new HelpBox(error, HelpBoxMessageType.Error));
 
                 }
+                BuildExecutionRules(content, stage.RunWhen, value => stage.RunWhen = value, stage.InterruptWhen, value => stage.InterruptWhen = value);
                 AddComment();
                 return;
             }
@@ -237,6 +240,37 @@ namespace DemonWeave.Editor
             node.EntityRole=role;
             var entity = Host?.BindingEntries.FirstOrDefault(b => b.Role == role)?.Entity;
             node.Results = entity ? entity.Results.ToList() : node.Results;
+        }
+        private void BuildExecutionRules(VisualElement parent, QuestCondition running, Action<QuestCondition> setRunning, QuestCondition interrupt, Action<QuestCondition> setInterrupt)
+        {
+            var section = new Foldout { text = "Execution Rules", value = running.Kind == ConditionKind.WorldFact || interrupt != null };
+            parent.Add(section);
+            void Fact(string label, QuestCondition rule, Action<QuestCondition> set, bool optional)
+            {
+                var assets = AssetDatabase.FindAssets("t:QuestWorldFact").Select(g => AssetDatabase.LoadAssetAtPath<QuestWorldFact>(AssetDatabase.GUIDToAssetPath(g))).Where(f => f).ToArray();
+                var fact = rule?.Kind == ConditionKind.WorldFact ? assets.FirstOrDefault(f => f.Id == rule.Subject) : null;
+                var field = new ObjectField(rule?.Kind == ConditionKind.WorldFact && !rule.Expected ? label + " (false)" : label) { objectType = typeof(QuestWorldFact), allowSceneObjects = false, value = fact,
+                    tooltip = optional ? "Cancel this scope when this world fact becomes true." : "Keep this scope running while this world fact is true; otherwise pause." };
+                field.RegisterValueChangedCallback(evt => Edit("Change " + label, () => {
+                    var next = evt.newValue as QuestWorldFact;
+                    set(next ? new QuestCondition { Kind = ConditionKind.WorldFact, Subject = next.Id, Expected = rule?.Expected ?? true } : optional ? null : new QuestCondition { Kind = ConditionKind.All });
+                }));
+                section.Add(field);
+                if (EditorApplication.isPlaying && rule?.Kind == ConditionKind.WorldFact && Host is QuestSceneHost runner)
+                {
+                    var currentValue = new Label(); section.Add(currentValue);
+                    void RefreshValue() { var actual = runner.WorldState ? runner.WorldState.Read(rule.Subject) : null; currentValue.text = "Current value: " + (actual?.ToString() ?? "Unavailable"); }
+                    RefreshValue(); currentValue.schedule.Execute(RefreshValue).Every(350);
+                }
+                if (rule != null && rule.Kind != ConditionKind.WorldFact && !(rule.Kind == ConditionKind.All && rule.Children.Count == 0))
+                    section.Add(new HelpBox("A custom condition is configured. Replacing this field replaces that condition.", HelpBoxMessageType.Info));
+            }
+            Fact("Run while", running, setRunning, false);
+            var sourceKind = interrupt == null ? "None" : interrupt.Kind == ConditionKind.ExternalQuestCompleted ? "Quest completion" : "World Fact";
+            Choice(section, "Interrupt source", new List<string> { "None", "World Fact", "Quest completion" }, sourceKind,
+                value => Edit("Change interruption source", () => setInterrupt(value == "None" ? null : new QuestCondition { Kind = value == "World Fact" ? ConditionKind.WorldFact : ConditionKind.ExternalQuestCompleted })));
+            if (interrupt?.Kind == ConditionKind.ExternalQuestCompleted) BuildCondition(section, interrupt, setInterrupt, 0);
+            else if (interrupt != null) Fact("Interrupt when", interrupt, setInterrupt, true);
         }
         private static bool ShownInQuest(Type type, string fieldName)
         {

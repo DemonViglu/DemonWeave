@@ -7,7 +7,7 @@ namespace DemonWeave.Quests
     // Local model names; not a Genshin wire enum or reconstructed server policy.
     public enum QuestStatus { Waiting, Active, Completed, Failed, Cancelled }
     public enum RuleCombination { All, Any }
-    public enum ConditionKind { Fact, QuestState, All, Any, StageState, StageResult }
+    public enum ConditionKind { Fact, QuestState, All, Any, StageState, StageResult, WorldFact, ExternalQuestCompleted }
     public enum ContentKind { EventCount, Fact, QuestState, StageState }
     public enum QuestPhase { Begin, Finish, Fail }
 
@@ -57,6 +57,8 @@ namespace DemonWeave.Quests
         public string StartComment = "";
         public string FinishComment = "";
         public QuestCondition Accept = new QuestCondition { Kind = ConditionKind.All };
+        public QuestCondition RunWhen = new QuestCondition { Kind = ConditionKind.All };
+        public QuestCondition InterruptWhen;
         public RuleCombination StageCompletion = RuleCombination.All;
         public RuleCombination FinishCombination = RuleCombination.All;
         public RuleCombination FailCombination = RuleCombination.Any;
@@ -69,11 +71,17 @@ namespace DemonWeave.Quests
         // Explicit local content policy, never inferred from ParentId or visual order.
         public bool CancelChildrenOnEnd;
         public QuestDefinition Copy() => new QuestDefinition { Id = Id, Title = Title, ParentId = ParentId, StartComment = StartComment, FinishComment = FinishComment,
-            Accept = Accept?.Copy(), StageCompletion = StageCompletion, FinishCombination = FinishCombination, FailCombination = FailCombination,
+            Accept = Accept?.Copy(), RunWhen = RunWhen?.Copy(), InterruptWhen = InterruptWhen?.Copy(), StageCompletion = StageCompletion, FinishCombination = FinishCombination, FailCombination = FailCombination,
             Finish = Finish?.Select(x => x?.Copy()).ToList(), Fail = Fail?.Select(x => x?.Copy()).ToList(),
             BeginExec = BeginExec?.Select(x => x?.Copy()).ToList(), FinishExec = FinishExec?.Select(x => x?.Copy()).ToList(),
             FailExec = FailExec?.Select(x => x?.Copy()).ToList(), CancelChildrenOnEnd = CancelChildrenOnEnd,
             Stages = Stages?.Select(x => x?.Copy()).ToList() };
+    }
+
+    public interface IQuestStateWorld
+    {
+        bool? ReadWorldFact(string id);
+        bool IsQuestCompleted(string collectionId, string questId);
     }
 
     public interface IQuestWorld

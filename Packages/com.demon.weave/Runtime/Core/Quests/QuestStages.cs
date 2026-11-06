@@ -20,6 +20,8 @@ namespace DemonWeave.Quests
         public string FinishResult = "";
         public List<string> After = new List<string>();
         public QuestCondition OpenWhen = new QuestCondition { Kind = ConditionKind.All };
+        public QuestCondition RunWhen = new QuestCondition { Kind = ConditionKind.All };
+        public QuestCondition InterruptWhen;
         public List<QuestContent> Objectives = new List<QuestContent>();
         public RuleCombination Completion = RuleCombination.All;
         public List<QuestExec> BeginExec = new List<QuestExec>();
@@ -27,7 +29,7 @@ namespace DemonWeave.Quests
         public List<QuestRoute> Routes = new List<QuestRoute>();
         public List<RouteSwitch> Switches = new List<RouteSwitch>();
         public QuestStage Copy() => new QuestStage { Id = Id, TypeId = TypeId, EntityRole = EntityRole, Control = Control, Results = Results?.ToList(), Title = Title, Comment = Comment, Required = Required, FinishResult = FinishResult,
-            After = After?.ToList(), OpenWhen = OpenWhen?.Copy(), Objectives = Objectives?.Select(x => x?.Copy()).ToList(), Completion = Completion,
+            After = After?.ToList(), OpenWhen = OpenWhen?.Copy(), RunWhen = RunWhen?.Copy(), InterruptWhen = InterruptWhen?.Copy(), Objectives = Objectives?.Select(x => x?.Copy()).ToList(), Completion = Completion,
             BeginExec = BeginExec?.Select(x => x?.Copy()).ToList(), FinishExec = FinishExec?.Select(x => x?.Copy()).ToList(),
             Routes = Routes?.Select(x => x?.Copy()).ToList(), Switches = Switches?.Select(x => x?.Copy()).ToList() };
     }
@@ -72,6 +74,8 @@ namespace DemonWeave.Quests
         public bool UsesEntity => Definition.Control == QuestControl.None && Definition.Results.Count > 0;
         public string EntityRole => Definition.EntityRole;
         public QuestStatus State { get; internal set; } = QuestStatus.Waiting;
+        public bool IsPaused { get; internal set; }
+        public string EndReason { get; internal set; } = "";
         public string Result { get; internal set; } = "";
         public string SelectedRouteId { get; internal set; } = "";
         public long RouteRevision { get; internal set; }

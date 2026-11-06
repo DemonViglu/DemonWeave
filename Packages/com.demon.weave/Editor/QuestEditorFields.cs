@@ -17,16 +17,36 @@ namespace DemonWeave.Editor
         private void BuildCondition(VisualElement parent, QuestCondition condition, Action<QuestCondition> replace, int depth)
         {
             if (condition == null || depth > 16) { parent.Add(new HelpBox("Missing condition or nesting limit exceeded.", HelpBoxMessageType.Error)); return; }
+            if (condition.Kind == ConditionKind.ExternalQuestCompleted)
+            {
+                var books = AssetDatabase.FindAssets("t:QuestBookAsset").Select(g => AssetDatabase.LoadAssetAtPath<QuestBookAsset>(AssetDatabase.GUIDToAssetPath(g))).Where(b => b).ToArray();
+                var source = books.FirstOrDefault(b => b.Id == condition.Subject);
+                var field = new UnityEditor.UIElements.ObjectField("Source collection") { objectType = typeof(QuestBookAsset), value = source, allowSceneObjects = false };
+                field.RegisterValueChangedCallback(evt => Edit("Change dependency source", () => { condition.Subject = (evt.newValue as QuestBookAsset)?.Id ?? ""; condition.Key = ""; }));
+                parent.Add(field);
+                if (source) Choice(parent, "Completed Quest", source.Quests.Select(q => q.Id).ToList(), condition.Key,
+                    value => Edit("Change prerequisite", () => condition.Key = value), id => source.Quests.FirstOrDefault(q => q.Id == id)?.Title ?? "Select Quest");
+                parent.Add(new Button(() => Edit("Remove dependency", () => replace(new QuestCondition { Kind = ConditionKind.All }))) { text = "Remove" });
+                return;
+            }
+            if (condition.Kind == ConditionKind.WorldFact)
+            {
+                var assets = AssetDatabase.FindAssets("t:QuestWorldFact").Select(g => AssetDatabase.LoadAssetAtPath<QuestWorldFact>(AssetDatabase.GUIDToAssetPath(g)));
+                var field = new UnityEditor.UIElements.ObjectField("World fact") { objectType = typeof(QuestWorldFact), value = assets.FirstOrDefault(f => f && f.Id == condition.Subject) };
+                field.RegisterValueChangedCallback(evt => Edit("Change world fact", () => condition.Subject = (evt.newValue as QuestWorldFact)?.Id ?? "")); parent.Add(field);
+                var expected = new Toggle("Must be true") { value = condition.Expected }; expected.RegisterValueChangedCallback(evt => Edit("Change fact requirement", () => condition.Expected = evt.newValue)); parent.Add(expected);
+                parent.Add(new Button(() => Edit("Remove condition", () => replace(new QuestCondition { Kind = ConditionKind.All }))) { text = "Remove" }); return;
+            }
             if (condition.Kind == ConditionKind.StageResult)
             {
                 parent.Add(new Label(AuthorCondition(condition)) { tooltip = "Edit this input by connecting result ports on the graph." });
                 return;
             }
             var group = new VisualElement { style = { paddingLeft = 10, borderLeftWidth = 2, borderLeftColor = new Color(.25f, .4f, .55f), marginBottom = 10 } }; parent.Add(group);
-            var kinds = new List<string> { "All (AND)", "Any (OR)", "Quest State", "Object Condition", "Node State (not valid for Quest activation)" };
+            var kinds = new List<string> { "All (AND)", "Any (OR)", "Quest State", "Object Condition", "Node State (not valid for Quest activation)", "World Fact", "Completed Quest in another collection" };
             var kind = condition.Kind == ConditionKind.All ? kinds[0] : condition.Kind == ConditionKind.Any ? kinds[1] : condition.Kind == ConditionKind.QuestState ? kinds[2] : condition.Kind == ConditionKind.StageState ? kinds[4] : kinds[3];
             Choice(group, "Condition Type", kinds, kind, value => Edit("Change Condition Type", () => {
-                var nextKind = value == kinds[0] ? ConditionKind.All : value == kinds[1] ? ConditionKind.Any : value == kinds[2] ? ConditionKind.QuestState : value == kinds[4] ? ConditionKind.StageState : ConditionKind.Fact;
+                var nextKind = value == kinds[5] ? ConditionKind.WorldFact : value == kinds[6] ? ConditionKind.ExternalQuestCompleted : value == kinds[0] ? ConditionKind.All : value == kinds[1] ? ConditionKind.Any : value == kinds[2] ? ConditionKind.QuestState : value == kinds[4] ? ConditionKind.StageState : ConditionKind.Fact;
                 if ((condition.Kind == ConditionKind.All || condition.Kind == ConditionKind.Any) && (nextKind == ConditionKind.All || nextKind == ConditionKind.Any)) condition.Kind = nextKind;
                 else replace(new QuestCondition { Kind = nextKind });
             }));

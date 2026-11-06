@@ -576,6 +576,54 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &516819634
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 516819636}
+  - component: {fileID: 516819635}
+  m_Layer: 0
+  m_Name: World State
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &516819635
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 516819634}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0e0a91074f4a13c4a9bb33a6377ff422, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: DemonWeave.Unity::DemonWeave.Unity.QuestWorldState
+  facts:
+  - {fileID: 11400000, guid: c060d5f5c2f72854185806a3a74448c4, type: 2}
+  - {fileID: 11400000, guid: 7b62d57ee5fcca9429ace1a54cbedb7d, type: 2}
+  keepAcrossScenes: 1
+--- !u!4 &516819636
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 516819634}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &829418912
 GameObject:
   m_ObjectHideFlags: 0
@@ -660,6 +708,124 @@ MonoBehaviour:
   entityId: a175f1222a69421a9e2ad4f9e812c586
   zone: {fileID: 829418913}
   seconds: 5
+--- !u!1 &974921544
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 974921547}
+  - component: {fileID: 974921546}
+  - component: {fileID: 974921545}
+  m_Layer: 0
+  m_Name: Follow-up Quest
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &974921545
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 974921544}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 25e7e714b72d4544d9a401b26d918041, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: DemonWeave.TriggerBranch.Sample::DemonWeave.TriggerBranch.TrainingAcknowledgementEntity
+  entityId: 3a7892c865eb4730b88ca6e0701f86a6
+--- !u!114 &974921546
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 974921544}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cc668da4738fcb842aa34b37ced18dbe, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: DemonWeave.Unity::DemonWeave.Unity.QuestSceneHost
+  book: {fileID: 11400000, guid: 81dfccc58b5e7784b86f9cff44bd796e, type: 2}
+  bindings:
+  - Role: acknowledge
+    Entity: {fileID: 974921545}
+    Object: {fileID: 0}
+  worldState: {fileID: 516819635}
+--- !u!4 &974921547
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 974921544}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1360631643
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1360631645}
+  - component: {fileID: 1360631644}
+  m_Layer: 0
+  m_Name: Training Controls
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1360631644
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1360631643}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e22291d8d3e425843a613852d4ed4f65, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: DemonWeave.TriggerBranch.Sample::DemonWeave.TriggerBranch.TrainingControls
+  Training: {fileID: 1878287551}
+  Followup: {fileID: 974921546}
+  State: {fileID: 516819635}
+  TrainingAllowed: {fileID: 11400000, guid: c060d5f5c2f72854185806a3a74448c4, type: 2}
+  TrainingAborted: {fileID: 11400000, guid: 7b62d57ee5fcca9429ace1a54cbedb7d, type: 2}
+  Acknowledgement: {fileID: 974921545}
+  Player: {fileID: 153767515}
+  Cubes:
+  - {fileID: 1915798403}
+  - {fileID: 1996274879}
+--- !u!4 &1360631645
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1360631643}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1878287548
 GameObject:
   m_ObjectHideFlags: 0
@@ -732,6 +898,7 @@ MonoBehaviour:
   - Role: green
     Entity: {fileID: 1915798408}
     Object: {fileID: 0}
+  worldState: {fileID: 516819635}
 --- !u!1 &1915798402
 GameObject:
   m_ObjectHideFlags: 0
@@ -1116,3 +1283,6 @@ SceneRoots:
   - {fileID: 1878287550}
   - {fileID: 285920221}
   - {fileID: 356655429}
+  - {fileID: 516819636}
+  - {fileID: 974921547}
+  - {fileID: 1360631645}

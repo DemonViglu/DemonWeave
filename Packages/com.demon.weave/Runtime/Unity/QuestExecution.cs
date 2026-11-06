@@ -16,12 +16,25 @@ namespace DemonWeave.Unity
         private Action<string> completed;
         private bool stopped, started;
         private int thread;
+        private bool paused;
+        private double accumulated, runningSince;
+        private string pendingResult;
+        public bool IsPaused => paused;
+        protected double ActiveTime => accumulated + (started && !paused && !stopped ? Time.timeAsDouble - runningSince : 0);
         public string Status { get; protected set; } = "Starting";
         internal void Start(Action<string> callback) {
             if (started || stopped) throw new InvalidOperationException("CreateExecution must return a new execution each time.");
-            started = true; thread = System.Threading.Thread.CurrentThread.ManagedThreadId; completed = callback; OnStart();
+            started = true; runningSince = Time.timeAsDouble; thread = System.Threading.Thread.CurrentThread.ManagedThreadId; completed = callback; OnStart();
         }
-        internal void Tick() { if (!stopped) OnTick(); }
+        internal void Tick() { if (!stopped && !paused) OnTick(); }
+        internal void SetPaused(bool value)
+        {
+            if (stopped || paused == value) return;
+            if (value) { accumulated = ActiveTime; paused = true; OnPause(); }
+            else { paused = false; runningSince = Time.timeAsDouble; OnResume(); if (!stopped && pendingResult != null) Complete(pendingResult); }
+        }
+        protected virtual void OnPause() { }
+        protected virtual void OnResume() { }
         protected virtual void OnStart() { }
         protected virtual void OnTick() { }
         protected virtual void OnStop() { }
@@ -29,6 +42,8 @@ namespace DemonWeave.Unity
         {
             if (stopped) return;
             if (System.Threading.Thread.CurrentThread.ManagedThreadId != thread) throw new InvalidOperationException("Report results on the Unity main thread.");
+            if (paused) { pendingResult ??= result; return; }
+            result = pendingResult ?? result;
             var callback = completed;
             Dispose();
             callback?.Invoke(result);
@@ -36,7 +51,7 @@ namespace DemonWeave.Unity
         public void Dispose()
         {
             if (stopped) return;
-            stopped = true; completed = null;
+            accumulated = ActiveTime; stopped = true; completed = null;
             OnStop();
         }
     }

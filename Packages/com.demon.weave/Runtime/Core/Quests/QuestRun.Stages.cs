@@ -11,6 +11,12 @@ namespace DemonWeave.Quests
             bool changed = false;
             foreach (var stage in owner.Stages)
             {
+                if (stage.State != QuestStatus.Active && stage.State != QuestStatus.Waiting) continue;
+                if (stage.Definition.InterruptWhen != null && Evaluate(stage.Definition.InterruptWhen, owner))
+                { Interrupt(Id, owner.DefinitionId, stage.Id, "Interruption condition satisfied"); changed = true; continue; }
+                var paused = owner.IsPaused || !Evaluate(stage.Definition.RunWhen, owner);
+                if (stage.IsPaused != paused) { stage.IsPaused = paused; StageNotice(owner, stage, QuestNoticeKind.Diagnostic, paused ? "Paused by running condition" : "Resumed"); }
+                if (paused) continue;
                 if (stage.State == QuestStatus.Waiting)
                 {
                     if (!stage.Definition.After.All(id => owner.Stage(id)?.State == QuestStatus.Completed) || !Evaluate(stage.Definition.OpenWhen, owner)) continue;
@@ -36,7 +42,7 @@ namespace DemonWeave.Quests
         public bool CompleteEntity(Guid runId, string questId, string stageId, string result)
         {
             var owner = Find(questId); var stage = owner?.Stage(stageId);
-            if (runId != Id || IsClosed || owner?.State != QuestStatus.Active || stage?.State != QuestStatus.Active) return false;
+            if (runId != Id || !CanProgress(questId, stageId)) return false;
             if (!stage.Definition.Results.Contains(result)) throw new ArgumentException("Undeclared result: " + result);
             stage.Result = result; stage.State = QuestStatus.Completed;
             StageNotice(owner, stage, QuestNoticeKind.State, "Result: " + result);
@@ -62,7 +68,7 @@ namespace DemonWeave.Quests
         private bool ReportToStages(QuestInstance owner, QuestWorldEvent occurrence)
         {
             bool matched = false;
-            foreach (var stage in owner.Stages.Where(s => s.State == QuestStatus.Active))
+            foreach (var stage in owner.Stages.Where(s => CanProgress(owner.DefinitionId, s.Id)))
             {
                 matched |= CountStageEvent(owner, stage, stage.Definition.Objectives, stage.Counts, occurrence);
                 var route = stage.Definition.Routes.FirstOrDefault(r => r.Id == stage.SelectedRouteId);
@@ -101,7 +107,7 @@ namespace DemonWeave.Quests
         {
             rejection = "";
             var owner = Find(questId); var stage = owner?.Stage(stageId);
-            if (IsClosed || owner?.State != QuestStatus.Active || stage?.State != QuestStatus.Active)
+            if (!CanProgress(questId, stageId))
             { rejection = "Quest/stage is not active."; return false; }
             var route = stage.Definition.Routes.FirstOrDefault(r => r.Id == routeId);
             if (route == null) { rejection = "Unknown route."; return false; }
@@ -121,6 +127,7 @@ namespace DemonWeave.Quests
             if (IsClosed || owner?.State != QuestStatus.Active || stage?.State != QuestStatus.Active || stage.SelectedRouteId != routeId || stage.RouteRevision != revision) return false;
             if (occurrence.Id == Guid.Empty || string.IsNullOrWhiteSpace(occurrence.Subject) || string.IsNullOrWhiteSpace(occurrence.Key)) throw new ArgumentException("Invalid route event.");
             if (!consumed.Add(occurrence.Id)) return false;
+            if (!CanProgress(questId, stageId)) return false;
             var route = stage.Definition.Routes.Single(r => r.Id == routeId);
             bool matched = CountStageEvent(owner, stage, stage.Definition.Objectives, stage.Counts, occurrence)
                 | CountStageEvent(owner, stage, route.Objectives, stage.RouteCounts[routeId], occurrence, routeId);
@@ -143,7 +150,7 @@ namespace DemonWeave.Quests
         private void CloseStages(QuestInstance owner, string reason)
         {
             foreach (var stage in owner.Stages.Where(s => s.State == QuestStatus.Active || s.State == QuestStatus.Waiting))
-            { stage.State = QuestStatus.Cancelled; StageNotice(owner, stage, QuestNoticeKind.State, reason); }
+            { stage.State = QuestStatus.Cancelled; stage.IsPaused = false; stage.EndReason = reason; StageNotice(owner, stage, QuestNoticeKind.State, reason); }
         }
         public IReadOnlyList<string> ExplainStage(string questId, string stageId)
         => ExplainStage(questId, stageId, null);
@@ -154,6 +161,8 @@ namespace DemonWeave.Quests
             string Fact(string role, string key, bool expected)
                 => (factName?.Invoke(role, key) ?? role + "." + key) + " = " + (world.ReadFact(role, key)?.ToString() ?? "unknown") + " (needs " + expected + ")";
             var result = new List<string> { stage.Title + ": " + stage.State };
+            if (stage.IsPaused) result.Add("Paused: running condition is false.");
+            if (!string.IsNullOrEmpty(stage.EndReason)) result.Add("Stopped: " + stage.EndReason);
             if (!string.IsNullOrEmpty(stage.Result)) result.Add("Result: " + stage.Result);
             if (IsClosed) { result.Add("Run closed."); return result; }
             foreach (var prerequisite in stage.Definition.After) result.Add("After " + owner.Stage(prerequisite)?.Title + ": " + owner.Stage(prerequisite)?.State);

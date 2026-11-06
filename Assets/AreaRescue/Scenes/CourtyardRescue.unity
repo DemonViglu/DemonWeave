@@ -12982,6 +12982,10 @@ MonoBehaviour:
   - Role: entity:0a02d491acec41b380c7048a714b74a6
     Entity: {fileID: 257158111}
     Object: {fileID: 0}
+  - Role: object:54c49cfa8fc8419cbe0b9713588fbd8e
+    Entity: {fileID: 0}
+    Object: {fileID: 1388984968}
+  worldState: {fileID: 0}
 --- !u!4 &1388984970
 Transform:
   m_ObjectHideFlags: 0

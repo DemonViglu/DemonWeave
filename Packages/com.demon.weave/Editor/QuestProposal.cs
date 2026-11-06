@@ -41,7 +41,7 @@ namespace DemonWeave.Editor
     public static class QuestProposalReview
     {
         private static readonly HashSet<string> Fields = new HashSet<string>(new[] {
-            "Title", "ParentId", "StartComment", "FinishComment", "Accept", "StageCompletion", "FinishCombination", "FailCombination", "Finish", "Fail", "BeginExec", "FinishExec", "FailExec", "CancelChildrenOnEnd", "Stages"
+            "Title", "ParentId", "StartComment", "FinishComment", "Accept", "RunWhen", "InterruptWhen", "StageCompletion", "FinishCombination", "FailCombination", "Finish", "Fail", "BeginExec", "FinishExec", "FailExec", "CancelChildrenOnEnd", "Stages"
         }, StringComparer.Ordinal);
         public static string Revision(QuestBookAsset book) => Hash(book.Id + "\n" + book.Title + "\n" + book.ExportDefinitions());
         private static string Bindings(IQuestAuthoringHost host) => host == null ? "unbound" : Hash(string.Join("\n", host.BindingEntries.OrderBy(b => b.Role).Select(b => b.Role + ":" + (b.Target ? (b.Entity ? b.Entity.Id : "object") + ":" + b.Target.GetEntityId() : "missing"))));
@@ -89,7 +89,7 @@ namespace DemonWeave.Editor
                 }
                 else if (operation.Op == "set-stage")
                 {
-                    var allowed = new[] { "TypeId", "EntityRole", "Control", "Results", "Title", "Comment", "Required", "FinishResult", "After", "OpenWhen", "Objectives", "Completion", "BeginExec", "FinishExec", "Routes", "Switches" };
+                    var allowed = new[] { "TypeId", "EntityRole", "Control", "Results", "Title", "Comment", "Required", "FinishResult", "After", "OpenWhen", "RunWhen", "InterruptWhen", "Objectives", "Completion", "BeginExec", "FinishExec", "Routes", "Switches" };
                     var stage = (quest?["Stages"] as JArray)?.OfType<JObject>().SingleOrDefault(s => (string)s["Id"] == operation.StageId);
                     if (stage == null || string.IsNullOrWhiteSpace(operation.StageId) || !allowed.Contains(operation.Field) || operation.Value == null)
                         throw new ArgumentException(path + ": set-stage requires an existing stage ID and allowed field.");
@@ -99,17 +99,13 @@ namespace DemonWeave.Editor
                 else throw new ArgumentException("Unknown operation: " + operation.Op);
             }
             var definitions = QuestBookAsset.ParseDefinitions(array.ToString(Formatting.None));
-            Validate(definitions, host);
+            Validate(book, definitions, host);
             return new PreparedQuestChange { Book = book, Revision = Revision(book), BindingRevision = Bindings(host), Definitions = definitions,
                 Summary = proposal.Summary, Diff = diff.ToString(), AllowUnbound = tableImport };
         }
-        private static void Validate(IReadOnlyList<QuestDefinition> definitions, IQuestAuthoringHost host)
+        private static void Validate(QuestBookAsset book, IReadOnlyList<QuestDefinition> definitions, IQuestAuthoringHost host)
         {
-            definitions = QuestBookAsset.RuntimeDefinitions(definitions);
-            if (definitions.Count == 0) return;
-            var bindings = host == null ? null : new QuestBindings(host.BindingEntries); var catalog = host?.CreateCapabilities();
-            var errors = QuestValidation.Validate(definitions, bindings == null ? (Func<string,bool>)null : role => bindings.Find(role), catalog == null ? (Func<string,string,string>)null : catalog.Validate,
-                host == null ? (Func<string,string,bool,string>)null : (role, key, isEvent) => host.Signals.Any(s => s.Role == role && s.Key == key && s.IsEvent == isEvent) ? "" : "Unregistered signal: " + role + "." + key);
+            var errors = QuestAuthoringChecks.Validate(book, host, definitions);
             if (errors.Count > 0) throw new ArgumentException(string.Join("\n", errors));
         }
         public static void Apply(PreparedQuestChange prepared, IQuestAuthoringHost host)
@@ -118,7 +114,7 @@ namespace DemonWeave.Editor
             if (EditorApplication.isPlaying) throw new InvalidOperationException("Exit Play before applying a definition.");
             if (Revision(prepared.Book) != prepared.Revision || Bindings(host) != prepared.BindingRevision)
                 throw new InvalidOperationException("Content or bindings changed. Review again.");
-            Validate(prepared.Definitions, host);
+            Validate(prepared.Book, prepared.Definitions, host);
             QuestAuthoringChecks.Edit(prepared.Book, "Apply Quest Proposal", quests => { quests.Clear(); quests.AddRange(prepared.Definitions.Select(q => q.Copy())); });
             if (AssetDatabase.Contains(prepared.Book)) AssetDatabase.SaveAssetIfDirty(prepared.Book);
         }

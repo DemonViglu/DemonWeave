@@ -20,6 +20,7 @@ namespace DemonWeave.Editor
             EditorGUILayout.LabelField("Quest Runtime", EditorStyles.boldLabel);
             serializedObject.Update();
             EditorGUILayout.PropertyField(serializedObject.FindProperty("book"), new GUIContent("Quest Collection"));
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("worldState"), new GUIContent("World State", "Uses the active World State service if unassigned."));
             serializedObject.ApplyModifiedProperties();
             if (!host.BookAsset) EditorGUILayout.HelpBox("Assign the Quest Collection this object should run.", MessageType.Warning);
             if (GUILayout.Button("Open Quest Editor")) QuestEditorWindow.Open(host.BookAsset, host);

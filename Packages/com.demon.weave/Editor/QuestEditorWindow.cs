@@ -324,8 +324,12 @@ namespace DemonWeave.Editor
                     if (recent.Length > 0) live.text += "\n\nRecent activity\n" + string.Join("\n", recent);
                     else if (instance == null) live.text += "\n" + Host.Activity.Last();
                 }
-                if (Host is QuestSceneHost sceneHost && !string.IsNullOrEmpty(selectedStageId))
-                    live.text += "\n" + sceneHost.ExecutionStatus(selectedId, selectedStageId);
+                if (Host is QuestSceneHost sceneHost)
+                {
+                    if (!string.IsNullOrEmpty(selectedStageId)) live.text += "\n" + sceneHost.ExecutionStatus(selectedId, selectedStageId);
+                    if (instance?.IsPaused == true && !string.IsNullOrEmpty(selectedStageId)) live.text += "\n" + string.Join("\n", run.Explain(selectedId));
+                    if (sceneHost.WorldState) foreach (var fact in sceneHost.WorldState.Facts.Where(f => f)) live.text = live.text.Replace(fact.Id, string.IsNullOrEmpty(fact.Label) ? fact.name : fact.Label);
+                }
                 return;
             }
             if (live != null)

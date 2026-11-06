@@ -41,6 +41,8 @@ namespace DemonWeave.Quests
             StageMap = definition.Stages.ToDictionary(s => s.Id, s => new QuestStageInstance(s), StringComparer.Ordinal);
             Stages = Array.AsReadOnly(definition.Stages.Select(s => StageMap[s.Id]).ToArray());
         }
+        public bool IsPaused { get; internal set; }
+        public string EndReason { get; internal set; } = "";
         public int Progress(string contentId) => Counts.TryGetValue(contentId, out var count) ? count : 0;
         public QuestDefinition DefinitionSnapshot() => Definition.Copy();
         public QuestStageInstance Stage(string id) => id != null && StageMap.TryGetValue(id, out var stage) ? stage : null;
@@ -91,6 +93,11 @@ namespace DemonWeave.Quests
                         continue;
                     }
                     if (instance.State != QuestStatus.Active) continue;
+                    if (instance.Definition.InterruptWhen != null && Evaluate(instance.Definition.InterruptWhen, instance))
+                    { CancelTree(instance, "Interruption condition satisfied"); changed = true; continue; }
+                    var paused = !Evaluate(instance.Definition.RunWhen, instance);
+                    if (instance.IsPaused != paused) { instance.IsPaused = paused; Emit(instance, QuestNoticeKind.Diagnostic, paused ? "Paused by running condition" : "Resumed"); }
+                    if (paused) { changed |= RefreshStages(instance); continue; }
                     RefreshContents(instance);
                     bool failed = Satisfied(instance, instance.Definition.Fail, instance.Definition.FailCombination);
                     if (!failed)
@@ -116,7 +123,7 @@ namespace DemonWeave.Quests
             if (!consumed.Add(occurrence.Id)) return false;
             bool matched = false;
             // Only tasks active BEFORE this event consume it. Successors never inherit the triggering event.
-            foreach (var instance in ordered.Where(x => x.State == QuestStatus.Active))
+            foreach (var instance in ordered.Where(x => x.State == QuestStatus.Active && Evaluate(x.Definition.RunWhen, x) && (x.Definition.InterruptWhen == null || !Evaluate(x.Definition.InterruptWhen, x))))
             {
                 matched |= ReportToStages(instance, occurrence);
                 foreach (var content in instance.Definition.Finish.Concat(instance.Definition.Fail))
@@ -140,6 +147,8 @@ namespace DemonWeave.Quests
                 case ConditionKind.QuestState: return Find(condition.Subject)?.State == condition.State;
                 case ConditionKind.StageState: return owner?.Stage(condition.Subject)?.State == condition.State;
                 case ConditionKind.StageResult: return owner?.Stage(condition.Subject)?.State == QuestStatus.Completed && owner.Stage(condition.Subject).Result == condition.Key;
+                case ConditionKind.WorldFact: return (world as IQuestStateWorld)?.ReadWorldFact(condition.Subject) is bool fact && fact == condition.Expected;
+                case ConditionKind.ExternalQuestCompleted: return (world as IQuestStateWorld)?.IsQuestCompleted(condition.Subject, condition.Key) == true;
                 case ConditionKind.Fact: return world.ReadFact(condition.Subject, condition.Key) is bool actual && actual == condition.Expected;
                 default: throw new InvalidOperationException("Condition was not validated.");
             }
@@ -178,9 +187,29 @@ namespace DemonWeave.Quests
         private void CancelTree(QuestInstance instance, string reason)
         {
             if (instance.State == QuestStatus.Waiting || instance.State == QuestStatus.Active)
-            { instance.State = QuestStatus.Cancelled; CloseStages(instance, reason); Emit(instance, QuestNoticeKind.State, reason); }
+            { instance.State = QuestStatus.Cancelled; instance.EndReason = reason; instance.IsPaused = false; CloseStages(instance, reason); Emit(instance, QuestNoticeKind.State, reason); }
             foreach (var child in ordered.Where(x => x.ParentId == instance.DefinitionId)) CancelTree(child, reason);
         }
+        public bool Interrupt(Guid runId, string questId, string nodeId, string reason)
+        {
+            if (runId != Id || IsClosed || string.IsNullOrWhiteSpace(reason)) return false;
+            var owner = Find(questId);
+            if (owner == null || owner.State != QuestStatus.Active && owner.State != QuestStatus.Waiting) return false;
+            if (string.IsNullOrEmpty(nodeId)) { CancelTree(owner, reason); return true; }
+            var node = owner.Stage(nodeId);
+            if (node == null || node.State != QuestStatus.Active && node.State != QuestStatus.Waiting) return false;
+            node.State = QuestStatus.Cancelled; node.IsPaused = false; node.EndReason = reason;
+            StageNotice(owner, node, QuestNoticeKind.State, reason); return true;
+        }
+        public bool CanProgress(string questId, string nodeId)
+        {
+            var owner = Find(questId); var node = owner?.Stage(nodeId);
+            return !IsClosed && owner?.State == QuestStatus.Active && node?.State == QuestStatus.Active &&
+                Evaluate(owner.Definition.RunWhen, owner) && Evaluate(node.Definition.RunWhen, owner) &&
+                (owner.Definition.InterruptWhen == null || !Evaluate(owner.Definition.InterruptWhen, owner)) &&
+                (node.Definition.InterruptWhen == null || !Evaluate(node.Definition.InterruptWhen, owner));
+        }
+
         public bool MayExecute(QuestNotice notice)
         {
             if (IsClosed || notice == null || notice.RunId != Id || notice.Kind != QuestNoticeKind.Exec) return false;
@@ -195,6 +224,8 @@ namespace DemonWeave.Quests
         {
             var instance = Find(questId) ?? throw new ArgumentException("Unknown quest: " + questId);
             var lines = new List<string>();
+            if (instance.IsPaused) { lines.Add("Paused by running condition"); ExplainCondition(instance.Definition.RunWhen, lines, "runWhen"); }
+            if (!string.IsNullOrEmpty(instance.EndReason)) lines.Add("Stopped: " + instance.EndReason);
             if (IsClosed) { lines.Add("Run closed; no further input is consumed."); return lines; }
             if (instance.State == QuestStatus.Waiting)
             {
@@ -213,6 +244,10 @@ namespace DemonWeave.Quests
                 lines.Add(path + ": " + condition.Kind + " = " + Evaluate(condition));
                 for (int i = 0; i < condition.Children.Count; i++) ExplainCondition(condition.Children[i], lines, path + "/" + i);
             }
+            else if (condition.Kind == ConditionKind.WorldFact)
+                lines.Add(path + ": " + condition.Subject + " needs " + condition.Expected + ", actual " + ((world as IQuestStateWorld)?.ReadWorldFact(condition.Subject)?.ToString() ?? "missing"));
+            else if (condition.Kind == ConditionKind.ExternalQuestCompleted)
+                lines.Add(path + ": waiting for " + condition.Subject + "/" + condition.Key + " to complete");
             else if (condition.Kind == ConditionKind.QuestState)
                 lines.Add(path + ": " + Find(condition.Subject)?.Title + " requires " + condition.State + ", actual " + Find(condition.Subject)?.State);
             else lines.Add(path + ": " + condition.Subject + "." + condition.Key + " requires " + condition.Expected + ", actual " + (world.ReadFact(condition.Subject, condition.Key)?.ToString() ?? "missing"));
