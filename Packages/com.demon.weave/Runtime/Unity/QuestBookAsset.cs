@@ -16,6 +16,7 @@ namespace DemonWeave.Unity
         public string Id = "";
         public string Title = "";
         [SerializeField, HideInInspector] private string definitionJson = "";
+        [SerializeField, HideInInspector] private string editorLayoutJson = "";
         [NonSerialized] private List<QuestDefinition> definitions;
         private static JsonSerializerSettings Settings => new JsonSerializerSettings {
             TypeNameHandling = TypeNameHandling.None, MissingMemberHandling = MissingMemberHandling.Error,

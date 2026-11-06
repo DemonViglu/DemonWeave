@@ -7,7 +7,7 @@ namespace DemonWeave.Quests
     // Local model names; not a Genshin wire enum or reconstructed server policy.
     public enum QuestStatus { Waiting, Active, Completed, Failed, Cancelled }
     public enum RuleCombination { All, Any }
-    public enum ConditionKind { Fact, QuestState, All, Any, StageState }
+    public enum ConditionKind { Fact, QuestState, All, Any, StageState, StageResult }
     public enum ContentKind { EventCount, Fact, QuestState, StageState }
     public enum QuestPhase { Begin, Finish, Fail }
 
@@ -54,7 +54,10 @@ namespace DemonWeave.Quests
         public string Id = "";
         public string Title = "";
         public string ParentId = "";
+        public string StartComment = "";
+        public string FinishComment = "";
         public QuestCondition Accept = new QuestCondition { Kind = ConditionKind.All };
+        public RuleCombination StageCompletion = RuleCombination.All;
         public RuleCombination FinishCombination = RuleCombination.All;
         public RuleCombination FailCombination = RuleCombination.Any;
         public List<QuestContent> Finish = new List<QuestContent>();
@@ -65,8 +68,8 @@ namespace DemonWeave.Quests
         public List<QuestStage> Stages = new List<QuestStage>();
         // Explicit local content policy, never inferred from ParentId or visual order.
         public bool CancelChildrenOnEnd;
-        public QuestDefinition Copy() => new QuestDefinition { Id = Id, Title = Title, ParentId = ParentId,
-            Accept = Accept?.Copy(), FinishCombination = FinishCombination, FailCombination = FailCombination,
+        public QuestDefinition Copy() => new QuestDefinition { Id = Id, Title = Title, ParentId = ParentId, StartComment = StartComment, FinishComment = FinishComment,
+            Accept = Accept?.Copy(), StageCompletion = StageCompletion, FinishCombination = FinishCombination, FailCombination = FailCombination,
             Finish = Finish?.Select(x => x?.Copy()).ToList(), Fail = Fail?.Select(x => x?.Copy()).ToList(),
             BeginExec = BeginExec?.Select(x => x?.Copy()).ToList(), FinishExec = FinishExec?.Select(x => x?.Copy()).ToList(),
             FailExec = FailExec?.Select(x => x?.Copy()).ToList(), CancelChildrenOnEnd = CancelChildrenOnEnd,

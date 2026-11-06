@@ -18,7 +18,10 @@ namespace DemonWeave.Editor
         {
             var host = (QuestSceneHost)target;
             EditorGUILayout.LabelField("Quest Runtime", EditorStyles.boldLabel);
-            using (new EditorGUI.DisabledScope(true)) EditorGUILayout.ObjectField("Collection", host.BookAsset, typeof(QuestBookAsset), false);
+            serializedObject.Update();
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("book"), new GUIContent("Quest Collection"));
+            serializedObject.ApplyModifiedProperties();
+            if (!host.BookAsset) EditorGUILayout.HelpBox("Assign the Quest Collection this object should run.", MessageType.Warning);
             if (GUILayout.Button("Open Quest Editor")) QuestEditorWindow.Open(host.BookAsset, host);
             EditorGUILayout.HelpBox("Object references are maintained from the Quest Editor. No manual binding table is required.", MessageType.Info);
         }

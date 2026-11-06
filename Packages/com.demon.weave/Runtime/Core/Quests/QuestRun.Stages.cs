@@ -17,7 +17,12 @@ namespace DemonWeave.Quests
                     stage.State = QuestStatus.Active; StageNotice(owner, stage, QuestNoticeKind.State, "Stage opened");
                     StageExec(owner, stage, stage.Definition.BeginExec, QuestPhase.Begin); changed = true;
                 }
-                if (stage.State != QuestStatus.Active) continue;
+                if (stage.State == QuestStatus.Active && stage.Definition.Control != QuestControl.None)
+                {
+                    stage.Result = "Next"; stage.State = QuestStatus.Completed;
+                    StageNotice(owner, stage, QuestNoticeKind.State, "Control released"); changed = true;
+                }
+                if (stage.State != QuestStatus.Active || stage.Definition.Results.Count > 0) continue;
                 UpdateStageFacts(owner, stage, stage.Definition.Objectives, stage.Counts);
                 var route = stage.Definition.Routes.FirstOrDefault(r => r.Id == stage.SelectedRouteId);
                 if (route != null) UpdateStageFacts(owner, stage, route.Objectives, stage.RouteCounts[route.Id], route.Id);
@@ -28,6 +33,16 @@ namespace DemonWeave.Quests
             }
             return changed;
         }
+        public bool CompleteEntity(Guid runId, string questId, string stageId, string result)
+        {
+            var owner = Find(questId); var stage = owner?.Stage(stageId);
+            if (runId != Id || IsClosed || owner?.State != QuestStatus.Active || stage?.State != QuestStatus.Active) return false;
+            if (!stage.Definition.Results.Contains(result)) throw new ArgumentException("Undeclared result: " + result);
+            stage.Result = result; stage.State = QuestStatus.Completed;
+            StageNotice(owner, stage, QuestNoticeKind.State, "Result: " + result);
+            Refresh(); return true;
+        }
+
         private void UpdateStageFacts(QuestInstance owner, QuestStageInstance stage, List<QuestContent> goals, Dictionary<string, int> counts, string route = "")
         {
             foreach (var goal in goals)
@@ -139,6 +154,7 @@ namespace DemonWeave.Quests
             string Fact(string role, string key, bool expected)
                 => (factName?.Invoke(role, key) ?? role + "." + key) + " = " + (world.ReadFact(role, key)?.ToString() ?? "unknown") + " (needs " + expected + ")";
             var result = new List<string> { stage.Title + ": " + stage.State };
+            if (!string.IsNullOrEmpty(stage.Result)) result.Add("Result: " + stage.Result);
             if (IsClosed) { result.Add("Run closed."); return result; }
             foreach (var prerequisite in stage.Definition.After) result.Add("After " + owner.Stage(prerequisite)?.Title + ": " + owner.Stage(prerequisite)?.State);
             void Gate(QuestCondition rule, string indent)
@@ -152,6 +168,7 @@ namespace DemonWeave.Quests
                         foreach (var child in rule.Children) Gate(child, indent + "  ");
                         break;
                     case ConditionKind.Fact: result.Add(indent + Fact(rule.Subject, rule.Key, rule.Expected)); break;
+                    case ConditionKind.StageResult: result.Add(indent + owner.Stage(rule.Subject)?.Title + " needs result " + rule.Key + "; actual " + (string.IsNullOrEmpty(owner.Stage(rule.Subject)?.Result) ? "not reported" : owner.Stage(rule.Subject).Result)); break;
                     case ConditionKind.StageState: result.Add(indent + owner.Stage(rule.Subject)?.Title + " = " + owner.Stage(rule.Subject)?.State + " (needs " + rule.State + ")"); break;
                     case ConditionKind.QuestState: result.Add(indent + Find(rule.Subject)?.Title + " = " + Find(rule.Subject)?.State + " (needs " + rule.State + ")"); break;
                 }

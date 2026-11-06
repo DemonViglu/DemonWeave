@@ -1,2 +1,2 @@
-﻿"QuestId","Order","Title","ParentId","FinishCombination","FailCombination","CancelChildrenOnEnd"
-"courtyard-rescue","0","Rescue the captive","","All","Any","false"
+﻿"QuestId","Order","Title","ParentId","FinishCombination","FailCombination","CancelChildrenOnEnd","StageCompletion","StartComment","FinishComment"
+"courtyard-rescue","0","Rescue the captive","","All","Any","false","Any","",""

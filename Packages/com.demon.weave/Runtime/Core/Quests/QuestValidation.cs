@@ -52,6 +52,10 @@ namespace DemonWeave.Quests
                 { Reference(rule.Subject, path + ".subject"); if (!Enum.IsDefined(typeof(QuestStatus), rule.State)) Error(path + ".state", "state.invalid", "Unknown quest state."); }
                 else if (rule.Kind == ConditionKind.Fact) FactOrEvent(rule.Subject, rule.Key, path);
                 else if (rule.Kind == ConditionKind.StageState) StageReference(rule.Subject, rule.State, path, stages);
+                else if (rule.Kind == ConditionKind.StageResult) {
+                    StageReference(rule.Subject, QuestStatus.Completed, path, stages);
+                    if (string.IsNullOrWhiteSpace(rule.Key)) Error(path + ".key", "result.required", "Select a declared result.");
+                }
                 if (rule.Kind == ConditionKind.All || rule.Kind == ConditionKind.Any)
                 {
                     if (rule.Children == null) Error(path + ".children", "required", "Children cannot be null.");
@@ -96,6 +100,7 @@ namespace DemonWeave.Quests
             }
             HashSet<string> ValidateStages(QuestDefinition definition, string path)
             {
+                if (!Enum.IsDefined(typeof(RuleCombination), definition.StageCompletion)) Error(path, "completion.invalid", "Use All or Any terminal completion.");
                 var ids = new HashSet<string>(StringComparer.Ordinal);
                 if (definition.Stages == null) { Error(path, "required", "Stages cannot be null."); return ids; }
                 foreach (var stage in definition.Stages)
@@ -111,13 +116,32 @@ namespace DemonWeave.Quests
                     {
                         if (!chain.Add(id)) return true;
                         var target = definition.Stages.FirstOrDefault(s => s?.Id == id);
-                        bool cyclic = target?.After != null && target.After.Where(a => a != null && ids.Contains(a)).Any(a => Cycle(a, chain));
+                        bool cyclic = target?.After != null && target.After.Concat(Results(target.OpenWhen).Select(r => r.Subject)).Where(a => a != null && ids.Contains(a)).Any(a => Cycle(a, chain));
                         chain.Remove(id); return cyclic;
                     }
                     if (!string.IsNullOrEmpty(stage.Id) && Cycle(stage.Id, new HashSet<string>())) Error(p + ".after", "stage.cycle", "After dependencies contain a cycle.");
+                    IEnumerable<QuestCondition> Results(QuestCondition c) {
+                        if (c == null) yield break;
+                        if (c.Kind == ConditionKind.StageResult) yield return c;
+                        if (c.Children != null) foreach (var child in c.Children) foreach (var r in Results(child)) yield return r;
+                    }
+                    foreach (var input in Results(stage.OpenWhen)) {
+                        var source = definition.Stages.FirstOrDefault(s => s?.Id == input.Subject);
+                        if (source == stage || source?.Results?.Contains(input.Key) != true) Error(p + ".openWhen", "result.missing", "Result source or output is missing: " + input.Subject + "/" + input.Key);
+                    }
+                    if (!Enum.IsDefined(typeof(QuestControl), stage.Control)) Error(p, "control.invalid", "Unknown control node.");
+                    if (stage.Control != QuestControl.None && (stage.Results?.Count != 1 || stage.Results[0] != "Next" || !string.IsNullOrEmpty(stage.EntityRole)))
+                        Error(p, "control.contract", "Control nodes use one Next result and no Entity target.");
+                    if (stage.Control == QuestControl.All && Results(stage.OpenWhen).GroupBy(r => r.Subject).Any(g => g.Select(r => r.Key).Distinct().Count() > 1))
+                        Error(p, "control.exclusive", "AND cannot wait for mutually exclusive results from the same node.");
+                    if (!string.IsNullOrEmpty(stage.FinishResult) && stage.Results?.Contains(stage.FinishResult) != true) Error(p, "result.terminal", "Finish must use a declared result.");
+                    if (stage.Results?.Count > 1 && stage.Required && string.IsNullOrEmpty(stage.FinishResult)) Error(p, "result.terminal", "Choose which result reaches Finish.");
+                    if (stage.Results?.Count > 0 && (stage.Objectives.Count > 0 || stage.BeginExec.Count > 0 || stage.FinishExec.Count > 0 || stage.Routes.Count > 0))
+                        Error(p, "entity.mixed", "Entity nodes own execution and completion; remove legacy actions/objectives/routes explicitly.");
                     Condition(stage.OpenWhen, p + ".openWhen", 0, new HashSet<QuestCondition>(), ids);
                     Contents(stage.Objectives, p + ".objectives", new HashSet<string>(), ids);
-                    if (stage.Objectives == null || stage.Objectives.Count == 0) Error(p + ".objectives", "stage.empty", "A stage needs actual objectives, not only behaviour calls.");
+                    if (stage.Results == null || stage.Results.Any(string.IsNullOrWhiteSpace) || stage.Results.Distinct().Count() != stage.Results.Count) Error(p + ".results", "result.invalid", "Results must be unique nonempty names.");
+                    if ((stage.Results == null || stage.Results.Count == 0) && (stage.Objectives == null || stage.Objectives.Count == 0)) Error(p + ".objectives", "stage.empty", "A stage needs actual objectives, not only behaviour calls.");
                     if (!Enum.IsDefined(typeof(RuleCombination), stage.Completion)) Error(p + ".completion", "combination.invalid", "Use All or Any.");
                     var execIds = new HashSet<string>(); ExecList(stage.BeginExec, p + ".beginExec", execIds); ExecList(stage.FinishExec, p + ".finishExec", execIds);
                     if (stage.Routes == null || stage.Switches == null) { Error(p, "required", "Routes and Switches cannot be null."); continue; }

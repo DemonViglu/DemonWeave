@@ -28,7 +28,7 @@ namespace DemonWeave.Editor
             {
                 parent.Add(Heading("Nodes"));
                 foreach (var item in quest.Stages) parent.Add(new Button(() => { selectedStageId = item.Id; detailSection = "Objective"; BuildInspector(); }) { text = item.Title + "  →" });
-                parent.Add(new Button(() => AddStage(quest, null)) { text = "+ Node" }); return;
+                return;
             }
             var panel = new VisualElement { name = "stage-" + stage.Id }; parent.Add(panel);
             if (detailSection == "Objective") BuildObjectives(panel, stage.Objectives, stage.Completion, value => stage.Completion = value, "Objectives");

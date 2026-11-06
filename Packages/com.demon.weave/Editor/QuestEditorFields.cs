@@ -17,6 +17,11 @@ namespace DemonWeave.Editor
         private void BuildCondition(VisualElement parent, QuestCondition condition, Action<QuestCondition> replace, int depth)
         {
             if (condition == null || depth > 16) { parent.Add(new HelpBox("Missing condition or nesting limit exceeded.", HelpBoxMessageType.Error)); return; }
+            if (condition.Kind == ConditionKind.StageResult)
+            {
+                parent.Add(new Label(AuthorCondition(condition)) { tooltip = "Edit this input by connecting result ports on the graph." });
+                return;
+            }
             var group = new VisualElement { style = { paddingLeft = 10, borderLeftWidth = 2, borderLeftColor = new Color(.25f, .4f, .55f), marginBottom = 10 } }; parent.Add(group);
             var kinds = new List<string> { "All (AND)", "Any (OR)", "Quest State", "Object Condition", "Node State (not valid for Quest activation)" };
             var kind = condition.Kind == ConditionKind.All ? kinds[0] : condition.Kind == ConditionKind.Any ? kinds[1] : condition.Kind == ConditionKind.QuestState ? kinds[2] : condition.Kind == ConditionKind.StageState ? kinds[4] : kinds[3];

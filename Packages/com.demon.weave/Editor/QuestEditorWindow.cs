@@ -23,18 +23,19 @@ namespace DemonWeave.Editor
         private ScrollView inspector;
         private VisualElement inspectorHeader;
         private Label diagnostics, live;
+        private ToolbarButton diagnosticsButton;
         private QuestRelationGraph graph;
         private QuestStageGraph stageGraph;
         private string displayedStageQuestId;
         private string notice = "";
         private string lastDocument;
         private bool showStages;
+        private bool restoreSavedLayout;
         [MenuItem("DemonWeave/Quest Editor")]
         public static void Open()
         {
             var window = GetWindow<QuestEditorWindow>("DemonWeave");
             window.minSize = new Vector2(1080, 720);
-            if (window.position.width < 1200) window.position = new Rect(50, 60, 1500, 850);
             window.Show();
         }
         public static void Open(QuestBookAsset asset, MonoBehaviour host = null)
@@ -42,19 +43,21 @@ namespace DemonWeave.Editor
             if (!asset) return;
             var window = GetWindow<QuestEditorWindow>("DemonWeave");
             window.book = asset; window.hostObject = host; window.selectedId = null; window.selectedStageId = null; window.detailSection = "Overview"; window.graph = null;
-            window.showStages = false;
+            window.showStages = true;
             window.minSize = new Vector2(1080, 700); window.CreateGUI(); window.Show(); window.Focus();
         }
-        private void OnEnable() { Undo.undoRedoPerformed += Rebuild; EditorApplication.playModeStateChanged += OnPlay; }
-        private void OnDisable() { Undo.undoRedoPerformed -= Rebuild; EditorApplication.playModeStateChanged -= OnPlay; }
+        private void OnEnable() { Undo.undoRedoPerformed += OnUndoRedo; EditorApplication.playModeStateChanged += OnPlay; EditorApplication.hierarchyChanged += OnHierarchyChanged; }
+        private void OnDisable() { Undo.undoRedoPerformed -= OnUndoRedo; EditorApplication.playModeStateChanged -= OnPlay; EditorApplication.hierarchyChanged -= OnHierarchyChanged; }
+        private void OnUndoRedo() { restoreSavedLayout = true; try { Rebuild(); } finally { restoreSavedLayout = false; } }
+        private void OnHierarchyChanged() { if (body != null && book) { LocateHost(); CreateGUI(); } }
         private void OnFocus()
         {
             if (body == null || !book) return;
             var previousHost = hostObject;
             LocateHost();
-            try { if (previousHost != hostObject || lastDocument != book.ExportDefinitions()) Rebuild(); } catch { Rebuild(); }
+            try { if (previousHost != hostObject) CreateGUI(); else if (lastDocument != book.ExportDefinitions()) Rebuild(); } catch { Rebuild(); }
         }
-        private void OnPlay(PlayModeStateChange state) { LocateHost(); Rebuild(); }
+        private void OnPlay(PlayModeStateChange state) { LocateHost(); CreateGUI(); }
         private void LocateHost()
         {
             if (!hostObject) hostObject = UnityEngine.Object.FindObjectsByType<MonoBehaviour>().FirstOrDefault(x => x is IQuestAuthoringHost h && (!book || h.BookAsset == book));
@@ -67,31 +70,21 @@ namespace DemonWeave.Editor
             statusSchedule?.Pause();
             rootVisualElement.style.backgroundColor = new Color(.075f, .09f, .12f);
             rootVisualElement.style.fontSize = 13;
+            body = null; diagnostics = null; live = null; breadcrumbs = null;
+            if (!book) { book = null; BuildWelcome(); return; }
             var header = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center, paddingLeft = 12, height = 36, backgroundColor = new Color(.10f, .12f, .16f) } };
             breadcrumbs = header;
             rootVisualElement.Add(header);
             var toolbar = new Toolbar();
-            if (Host == null && book)
-            {
-                var attach = new ToolbarButton(AttachToScene) { text = "Use in Scene", tooltip = "Create the scene runtime for this collection. No sample Scenario is required." };
-                attach.SetEnabled(!EditorApplication.isPlaying); toolbar.Add(attach);
-            }
-            var context = new Foldout { text = "Preview Context", value = false };
             toolbar.style.height = 32; toolbar.style.paddingLeft = 12;
-            var host = new ObjectField("Scene Host") { objectType = typeof(MonoBehaviour), allowSceneObjects = true, value = hostObject };
-            host.style.width = 300;
-            host.RegisterValueChangedCallback(e => {
-                var value = e.newValue as MonoBehaviour;
-                if (value && !(value is IQuestAuthoringHost)) { notice = "Component does not implement the Quest authoring interface."; host.SetValueWithoutNotify(hostObject); return; }
-                hostObject = value; if (!book && Host != null) book = Host.BookAsset; Rebuild();
-            }); context.Add(host);
-            var asset = new ObjectField("Quest Collection") { objectType = typeof(QuestBookAsset), allowSceneObjects = false, value = book }; asset.style.width = 310;
-            asset.RegisterValueChangedCallback(e => { book = e.newValue as QuestBookAsset; hostObject = null; LocateHost(); selectedId = null; Rebuild(); }); context.Add(asset);
-            var technicalToggle = new ToolbarToggle { text = "Advanced", value = technicalView };
-            technicalToggle.RegisterValueChangedCallback(e => { technicalView = e.newValue; Rebuild(); }); toolbar.Add(technicalToggle);
+            toolbar.Add(new ToolbarButton(OpenCollectionAsset) { text = "Open…", tooltip = "Open another Quest Collection asset" });
             toolbar.Add(new ToolbarButton(() => { if (stageGraph != null) stageGraph.FrameAll(); else graph?.FrameAll(); }) { text = "Frame All" });
-            toolbar.Add(new ToolbarButton(() => QuestProposalWindow.Open(book, hostObject)) { text = "AI Changes" });
-            var tables = new ToolbarMenu { text = "Tables" };
+            var tables = new ToolbarMenu { text = "More" };
+            tables.menu.AppendAction("New Quest", _ => AddQuest(), _ => EditorApplication.isPlaying ? DropdownMenuAction.Status.Disabled : DropdownMenuAction.Status.Normal);
+            tables.menu.AppendAction("Advanced fields", _ => { technicalView = !technicalView; Rebuild(); },
+                _ => technicalView ? DropdownMenuAction.Status.Checked : DropdownMenuAction.Status.Normal);
+            tables.menu.AppendAction("AI Changes…", _ => QuestProposalWindow.Open(book, hostObject),
+                _ => Host == null ? DropdownMenuAction.Status.Disabled : DropdownMenuAction.Status.Normal);
             tables.menu.AppendAction("Export CSV", _ => {
                 if (!book || EditorApplication.isPlaying) return;
                 var directory = EditorUtility.OpenFolderPanel("Export Quest Tables", "", ""); if (string.IsNullOrEmpty(directory)) return;
@@ -111,25 +104,27 @@ namespace DemonWeave.Editor
                 notice = sceneSaved ? "Quest and scene bindings saved." : "Quest saved; scene bindings were not saved."; UpdateStatus();
             }) { text = "Save" });
             rootVisualElement.Add(toolbar);
-            rootVisualElement.Add(context);
+            BuildSceneConnection();
             toolbar.Add(new ToolbarButton(() => EditorUtility.DisplayDialog("Edit Quest", "Select a node to edit its properties. Connect ports to add prerequisites. Custom node types are ScriptableObject templates.", "Close")) { text = "Help" });
             body = new VisualElement { style = { flexGrow = 1, flexDirection = FlexDirection.Row } }; rootVisualElement.Add(body);
             diagnostics = new Label { style = { whiteSpace = WhiteSpace.Normal, paddingLeft = 12, paddingRight = 12, paddingTop = 8, paddingBottom = 8, maxHeight = 100 } };
-            rootVisualElement.Add(diagnostics); Rebuild();
+            diagnosticsButton = new ToolbarButton(() => QuestDiagnosticsWindow.Open(book, hostObject)) { text = "Diagnostics" };
+            toolbar.Add(diagnosticsButton);
+            Rebuild();
             statusSchedule = rootVisualElement.schedule.Execute(UpdateStatus).Every(350);
         }
         private void Rebuild()
         {
             if (body == null) return;
-            var oldPositions = graph?.CapturePositions();
+            var oldPositions = restoreSavedLayout ? null : graph?.CapturePositions();
             var oldPan = graph?.viewTransform.position ?? Vector3.zero;
             var oldZoom = graph?.viewTransform.scale ?? Vector3.one;
             var oldScroll = inspector?.scrollOffset ?? Vector2.zero;
-            var nodePositions = displayedStageQuestId == selectedId ? stageGraph?.CapturePositions() : null;
+            var nodePositions = !restoreSavedLayout && displayedStageQuestId == selectedId ? stageGraph?.CapturePositions() : null;
             var nodePan = stageGraph?.viewTransform.position ?? Vector3.zero;
             var nodeZoom = stageGraph?.viewTransform.scale ?? Vector3.one;
             body.Clear(); graph = null; stageGraph = null; live = null;
-            if (!book) { body.Add(new HelpBox("Open a Quest Collection asset from the Project window.", HelpBoxMessageType.Info)); return; }
+            if (!book) { CreateGUI(); return; }
             try
             {
                 lastDocument = book.ExportDefinitions();
@@ -156,50 +151,51 @@ namespace DemonWeave.Editor
                 inspector = new ScrollView { style = { flexGrow = 1, paddingLeft = 14, paddingRight = 14, paddingBottom = 20 } }; detailPane.Add(inspector); split.Add(detailPane); body.Add(split);
                 if (book.Quests.Count == 0)
                 {
-                    graphArea.Add(Heading("No quests yet"));
-                    graphArea.Add(new Button(AddQuest) { text = "Create First Quest" });
+                    graphArea.Add(new QuestStageGraph(new QuestDefinition { Id = "preview", Title = "New Quest" },
+                        createNode: () => { AddQuest(); AddStage(book.Quests.Last()); }));
                 }
                 else if (book.Quests.Any(q => q == null || string.IsNullOrWhiteSpace(q.Id)) || book.Quests.Select(q => q.Id).Distinct().Count() != book.Quests.Count)
                     graphArea.Add(new HelpBox("Missing or duplicate Quest IDs. Fix the definition to display dependencies.", HelpBoxMessageType.Error));
                 else
                 {
                     var selected = book.Quests.FirstOrDefault(q => q.Id == selectedId);
-                    if (showStages && selected != null)
+                    if (!showStages)
                     {
-                        var nodeTools = new Toolbar();
-                        var add = new ToolbarButton(() => AddStage(selected, null)) { text = "+ Add Node", tooltip = "Create an independent node. Drag Completed to the new node’s input to add a prerequisite." };
-                        add.SetEnabled(!EditorApplication.isPlaying); nodeTools.Add(add); graphArea.Add(nodeTools);
-                        if (selected.Stages.Count == 0)
-                        {
-                            var empty = new VisualElement { style = { paddingLeft = 32, paddingTop = 40 } };
-                            empty.Add(Heading("Empty Quest"));
-                            empty.Add(new Label("Add your first node using the toolbar above."));
-                            empty.Add(new Button(() => ShowStageMenu(selected)) { text = "From Template…" });
-                            graphArea.Add(empty);
-                        }
-                        else {
+                        oldPositions ??= QuestGraphLayoutStore.Read(book, "$quests");
+                        graph = new QuestRelationGraph(book, id => { selectedId = id; selectedStageId = null; BuildInspector(); }, Rebuild, oldPositions == null, DeleteQuests, OpenQuest, positions => QuestGraphLayoutStore.Save(book, "$quests", positions));
+                        graphArea.Add(graph);
+                        if (oldPositions != null) { graph.RestorePositions(oldPositions); graph.UpdateViewTransform(oldPan, oldZoom); }
+                    }
+                    else if (selected != null)
+                    {
+                        nodePositions ??= QuestGraphLayoutStore.Read(book, selected.Id);
                         var graphCapabilities = Host?.CreateCapabilities();
                         stageGraph = new QuestStageGraph(QuestBookAsset.Compile(selected, false), stageId => {
-                            selectedStageId = stageId; detailSection = "Objective"; BuildInspector();
+                            selectedStageId = stageId; detailSection = "Objective"; if (stageId == "$start" || stageId == "$finish") { Rebuild(); return; } BuildInspector();
                             inspector.schedule.Execute(() => { var field = inspector.Q<VisualElement>("stage-" + stageId); if (field != null) inspector.ScrollTo(field); }).ExecuteLater(1);
                         }, stage => {
                             var producer = authorProfile?.ProducerFor(Host, stage.OpenWhen);
                             var sources = producer == null ? Array.Empty<QuestStage>() : QuestBookAsset.Compile(selected, false).Stages.Where(s => s.Id != stage.Id && s.BeginExec.Concat(s.FinishExec).Any(e => authorProfile.Produces(Host, e, stage.OpenWhen))).ToArray();
                             return sources.Length == 1 ? sources[0] : null;
-                        }, AuthorCondition, ids => DeleteStages(selected, ids), (from, to) => Edit("Remove Node Dependency", () => selected.Stages.Single(s => s.Id == to).After.Remove(from)), (from, to) => ConnectStages(selected, from, to), () => AddStage(selected, null), nodePositions == null, () => ShowStageMenu(selected),
+                        }, AuthorCondition, ids => DeleteStages(selected, ids), (from, to) => DisconnectStages(selected, from, to), (from, to) => ConnectStages(selected, from, to), () => AddStage(selected), nodePositions == null,
                             (node, action) => graphCapabilities?.Find(action.CapabilityId, node.EntityRole)?.Label ?? action.CapabilityId,
-                            id => AddStage(selected, null, selected.Stages.Single(s => s.Id == id)));
+                                                        (id, position) => AddStage(selected, position), node => {
+                                if (node.Control != QuestControl.None) { AssetDatabase.OpenAsset(AssetDatabase.LoadAssetAtPath<MonoScript>("Packages/com.demon.weave/Runtime/Core/Quests/QuestRun.Stages.cs")); return; }
+                                var entity = Host?.BindingEntries.FirstOrDefault(b => b.Role == node.EntityRole)?.Entity;
+                                if (entity) OpenImplementation(entity.GetType());
+                                else { notice = "Assign a target Entity to open its code."; UpdateStatus(); }
+                            }, node => node.Comment ?? Host?.BindingEntries.FirstOrDefault(b => b.Role == node.EntityRole)?.Entity?.Comment,
+                            positions => QuestGraphLayoutStore.Save(book, selected.Id, positions),
+                            (control, position) => AddStage(selected, position, control));
                         graphArea.Add(stageGraph);
                         displayedStageQuestId = selectedId;
                         if (nodePositions != null) { stageGraph.RestorePositions(nodePositions); stageGraph.UpdateViewTransform(nodePan, nodeZoom); }
-                        }
                     }
-                    else
-                    {
-                    graph = new QuestRelationGraph(book, id => { selectedId = id; selectedStageId = null; inspector.scrollOffset = Vector2.zero; BuildInspector(); }, Rebuild, oldPositions == null, DeleteQuests, OpenQuest);
-                    graphArea.Add(graph);
-                    if (oldPositions != null) { graph.RestorePositions(oldPositions); graph.UpdateViewTransform(oldPan, oldZoom); }
-                    }
+
+                }
+                if (showStages && !technicalView && selectedStageId != "$start" && selectedStageId != "$finish" && (book.Quests.Count == 0 || book.Quests.FirstOrDefault(q => q.Id == selectedId)?.Stages.Count == 0))
+                {
+                    body.Remove(split); graphArea.RemoveFromHierarchy(); body.Add(graphArea);
                 }
                 BuildInspector(); UpdateStatus();
                 inspector.schedule.Execute(() => inspector.scrollOffset = oldScroll).ExecuteLater(1);
@@ -275,16 +271,6 @@ namespace DemonWeave.Editor
             Undo.RecordObject(hostObject, "Assign Quest Collection"); Host.BookAsset = book;
             MarkHost(); notice = "Scene Host now uses this collection. Save the scene bindings before running."; Rebuild();
         }
-        private void AttachToScene()
-        {
-            if (!book || EditorApplication.isPlaying) return;
-            var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
-            if (!scene.IsValid() || !scene.isLoaded) { notice = "Open a scene first."; UpdateStatus(); return; }
-            var root = new GameObject("Quest Runtime — " + book.name);
-            Undo.RegisterCreatedObjectUndo(root, "Use Quest in Scene");
-            var host = Undo.AddComponent<QuestSceneHost>(root); host.BookAsset = book;
-            hostObject = host; MarkHost(); CreateGUI();
-        }
         private void Edit(string label, Action action)
         { QuestAuthoringChecks.Edit(book, label, _ => action()); notice = "Unsaved changes. The next Play session uses the new definition."; Rebuild(); }
         private void AddQuest()
@@ -292,7 +278,9 @@ namespace DemonWeave.Editor
             if (!book || EditorApplication.isPlaying) return;
             var title = "New Quest"; int suffix = 2;
             while (book.Quests.Any(q => q.Title == title)) title = "New Quest " + suffix++;
-            var quest = new QuestDefinition { Id = "quest-" + Guid.NewGuid().ToString("N"), Title = title };
+            var quest = new QuestDefinition { Id = "quest-" + Guid.NewGuid().ToString("N"), Title = title, StageCompletion = RuleCombination.Any };
+            if (book.Quests.Count > 0)
+                quest.Accept = new QuestCondition { Kind = ConditionKind.QuestState, Subject = book.Quests.Last().Id, State = QuestStatus.Completed };
             QuestAuthoringChecks.Edit(book, "Create Quest", quests => quests.Add(quest));
             notice = ""; OpenQuest(quest.Id);
         }
@@ -303,7 +291,9 @@ namespace DemonWeave.Editor
         private void UpdateStatus()
         {
             if (!book || diagnostics == null) return;
+            UpdateConnectionStatus();
             var errors = QuestAuthoringChecks.Validate(book, Host);
+            if (diagnosticsButton != null) diagnosticsButton.text = errors.Count > 0 ? "Diagnostics (" + errors.Count + ")" : "Diagnostics";
             diagnostics.text = errors.Count == 0 ? notice
                 : string.Join("\n", errors.Take(3)) + (errors.Count > 3 ? $"\n{errors.Count - 3} more issues." : "");
             diagnostics.style.display = string.IsNullOrWhiteSpace(diagnostics.text) ? DisplayStyle.None : DisplayStyle.Flex;
@@ -334,6 +324,8 @@ namespace DemonWeave.Editor
                     if (recent.Length > 0) live.text += "\n\nRecent activity\n" + string.Join("\n", recent);
                     else if (instance == null) live.text += "\n" + Host.Activity.Last();
                 }
+                if (Host is QuestSceneHost sceneHost && !string.IsNullOrEmpty(selectedStageId))
+                    live.text += "\n" + sceneHost.ExecutionStatus(selectedId, selectedStageId);
                 return;
             }
             if (live != null)
@@ -361,68 +353,78 @@ namespace DemonWeave.Editor
         {
             var current = Host?.BindingEntries.FirstOrDefault(b => b.Role == value);
             var row = ItemRow(parent);
-            var field = new ObjectField(entityOnly && SelectedNode != null ? "Node owner" : ObjectNames.NicifyVariableName(label)) { objectType = entityOnly ? typeof(QuestEntity) : typeof(GameObject), allowSceneObjects = true,
-                value = entityOnly ? (UnityEngine.Object)current?.Entity : current?.Target, name = "target-" + label,
-                tooltip = entityOnly ? "Choose the business component that inherits QuestEntity." : "An explicit scene-object argument. No identity component is required." };
-            field.style.flexGrow = 1; field.style.minWidth = 0; field.labelElement.style.minWidth = 42; field.labelElement.style.width = entityOnly ? 76 : 42; field.SetEnabled(Host != null && !EditorApplication.isPlaying); row.Add(field);
+            var field = new ObjectField(entityOnly ? "Target" : ObjectNames.NicifyVariableName(label)) {
+                objectType = typeof(UnityEngine.Object), allowSceneObjects = true,
+                value = entityOnly && current?.Entity ? (UnityEngine.Object)current.Entity : current?.Target,
+                name = "target-" + label,
+                tooltip = "Drop a scene GameObject or its QuestEntity component."
+            };
+            field.style.flexGrow = 1; field.style.flexBasis = 0; field.style.minWidth = 0;
+            field.labelElement.style.minWidth = 45; field.labelElement.style.width = 45;
+            field.SetEnabled(Host != null && !EditorApplication.isPlaying); row.Add(field);
             var selector = field.Q(className: "unity-object-field__selector");
             if (selector != null) selector.style.display = DisplayStyle.None;
-            var controls = entityOnly ? ItemRow(parent) : row;
-            if (entityOnly) field.labelElement.style.width = 96;
             Button browse = null;
-            browse = new Button(() => {
-                if (!hostObject || EditorApplication.isPlaying) return;
-                var anchor = browse.worldBound;
-                var picker = new QuestScenePicker(hostObject.gameObject.scene, entityOnly, current?.Target, go => {
-                    if (field.panel == null || !hostObject || EditorApplication.isPlaying) return;
-                    field.value = entityOnly && go ? (UnityEngine.Object)go.GetComponent<QuestEntity>() : go;
-                });
-                UnityEditor.PopupWindow.Show(anchor, picker);
-            }) { text = "Browse…", tooltip = "Search this scene or expand the Hierarchy" };
-            browse.SetEnabled(Host != null && !EditorApplication.isPlaying); controls.Add(browse);
-            GameObject ObjectOf(UnityEngine.Object obj) => obj is Component c ? c.gameObject : obj as GameObject;
-            IconAction(controls, "◎", "Select in Hierarchy", () => { var go = ObjectOf(field.value); if(go) {Selection.activeGameObject = go; EditorGUIUtility.PingObject(go);} }).SetEnabled(current?.Target);
-            if (entityOnly && current?.Entity)
+            browse = IconAction(row, "⌕", "Search scene objects", () => {
+                if (!hostObject) return;
+                UnityEditor.PopupWindow.Show(browse.worldBound,
+                    new QuestScenePicker(hostObject.gameObject.scene, false, current?.Target, go => {
+                        if (field.panel != null && !EditorApplication.isPlaying) field.value = go;
+                    }));
+            });
+            browse.SetEnabled(Host != null && !EditorApplication.isPlaying);
+            IconAction(row, "◎", "Locate object in Hierarchy", () => {
+                Selection.activeGameObject = current.Target; EditorGUIUtility.PingObject(current.Target);
+            }).SetEnabled(current?.Target);
+            if (entityOnly)
             {
-                var instance = current.Entity;
-                var inspect = new Button(() => EditorUtility.OpenPropertyEditor(instance)) {
-                    text = "Inspect instance", tooltip = instance.gameObject.scene.name + " / " + instance.gameObject.name + " / " + instance.GetType().Name
-                };
-                inspect.style.alignSelf = Align.FlexStart;
-                controls.Add(inspect);
+                IconAction(row, "▾", "Choose a QuestEntity component on this object", () => {
+                    var entities = current.Target.GetComponents<QuestEntity>();
+                    PickCatalog("Components on " + current.Target.name, entities.Select((entity, index) => new QuestCatalogPicker.Entry {
+                        Id = entity.Id, Label = entity.GetType().Name + " (" + (index + 1) + ")", Choose = () => field.value = entity
+                    }));
+                }).SetEnabled(current?.Target && current.Target.GetComponents<QuestEntity>().Length > 0 && !EditorApplication.isPlaying);
+                IconAction(row, "⚙", "Inspect this component instance", () => EditorUtility.OpenPropertyEditor(current.Entity)).SetEnabled(current?.Entity);
             }
             field.RegisterValueChangedCallback(e => {
-                var target = ObjectOf(e.newValue);
-                var entity = target ? target.GetComponent<QuestEntity>() : null;
-                if(target && (target.scene != hostObject.gameObject.scene || !target.scene.IsValid() || entityOnly && (!entity || entity.GetType() == typeof(QuestEntity))))
+                var component = e.newValue as Component;
+                var target = component ? component.gameObject : e.newValue as GameObject;
+                if (e.newValue && (!target || !hostObject || target.scene != hostObject.gameObject.scene || !target.scene.IsValid()))
+                { field.SetValueWithoutNotify(e.previousValue); notice = "Choose an object from the runner's scene."; UpdateStatus(); return; }
+                var entity = entityOnly ? e.newValue as QuestEntity : null;
+                if (entityOnly && target && !entity)
                 {
-                    notice = entityOnly ? "Choose a logic component inheriting QuestEntity in this scene." : "Choose an object in this scene.";
-                    field.SetValueWithoutNotify(e.previousValue); UpdateStatus(); return;
+                    var candidates = target.GetComponents<QuestEntity>();
+                    if (candidates.Length == 1) entity = candidates[0];
+                    else if (candidates.Length > 1)
+                    {
+                        field.SetValueWithoutNotify(e.previousValue);
+                        PickCatalog("Components on " + target.name, candidates.Select((candidate, index) => new QuestCatalogPicker.Entry {
+                            Id = candidate.Id, Label = candidate.GetType().Name + " (" + (index + 1) + ")", Choose = () => field.value = candidate
+                        })); return;
+                    }
                 }
                 Undo.IncrementCurrentGroup(); int group = Undo.GetCurrentGroup();
-                if (entityOnly && SelectedNode != null && current?.Target && current.Target != target)
+                if (!target) { changed(""); Undo.CollapseUndoOperations(group); return; }
+                if (entity && (string.IsNullOrEmpty(entity.Id) || UnityEngine.Object.FindObjectsByType<QuestEntity>(FindObjectsSortMode.None).Any(other => other != entity && other.Id == entity.Id)))
                 {
-                    var node = SelectedNode;
-                    var uses = OwnerUses(node).ToArray();
-                    if (uses.Length > 0 && !EditorUtility.DisplayDialog("Change Entity on " + node.Title,
-                        current.Target.name + " → " + (target ? target.name : "Unassigned") + "\n\n" +
-                        string.Join("\n", uses) + "\n\nThese references follow this node’s Entity. Explicit action arguments keep their values. Other nodes keep their bindings.",
-                        "Change Entity", "Cancel"))
-                    { field.SetValueWithoutNotify(e.previousValue); return; }
+                    Undo.RecordObject(entity, "Assign Entity Identity");
+                    var data = new SerializedObject(entity); data.FindProperty("entityId").stringValue = Guid.NewGuid().ToString("N");
+                    data.ApplyModifiedProperties(); PrefabUtility.RecordPrefabInstancePropertyModifications(entity);
                 }
-                if(!target) { changed(""); return; }
-                if(entity && (string.IsNullOrEmpty(entity.Id) || UnityEngine.Object.FindObjectsByType<QuestEntity>(FindObjectsSortMode.None).Any(other=>other!=entity&&other.Id==entity.Id)))
+                var binding = Host.BindingEntries.FirstOrDefault(b => entity ? b.Entity == entity : !b.Entity && b.Object == target);
+                if (binding == null)
                 {
-                    Undo.RecordObject(entity,"Assign Entity Identity");var data=new SerializedObject(entity);data.FindProperty("entityId").stringValue=Guid.NewGuid().ToString("N");data.ApplyModifiedProperties();PrefabUtility.RecordPrefabInstancePropertyModifications(entity);
+                    Undo.RecordObject(hostObject, "Bind Quest Reference");
+                    binding = new EntityBinding { Role = entity ? "entity:" + entity.Id : "object:" + Guid.NewGuid().ToString("N"), Entity = entity, Object = entity ? null : target };
+                    Host.BindingEntries.Add(binding); MarkHost();
                 }
-                var binding=Host.BindingEntries.FirstOrDefault(b=>b.Target==target);
-                if(binding==null)
-                {
-                    Undo.RecordObject(hostObject,"Bind Quest Reference");binding=new EntityBinding{Role=entity?"entity:"+entity.Id:"object:"+Guid.NewGuid().ToString("N"),Entity=entity,Object=entity?null:target};Host.BindingEntries.Add(binding);MarkHost();
-                }
-                EditorSceneManager.MarkSceneDirty(target.scene);changed(binding.Role);Undo.CollapseUndoOperations(group);
+                changed(binding.Role); Undo.CollapseUndoOperations(group);
             });
-            if(current==null && !string.IsNullOrEmpty(value)) parent.Add(new HelpBox("Unresolved reference: "+value,HelpBoxMessageType.Warning));
+            if (!string.IsNullOrEmpty(value) && (current == null || !current.Target))
+                parent.Add(new HelpBox("Target was removed. Drop a replacement scene object here.", HelpBoxMessageType.Error));
+            else if (entityOnly && current?.Target && !current.Entity)
+                parent.Add(new HelpBox("This object has no selected QuestEntity. A TD must provide its conditions and actions; use the component arrow once one is attached.", HelpBoxMessageType.Info));
         }
     }
 }

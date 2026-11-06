@@ -21,13 +21,14 @@ namespace DemonWeave.Editor
         private sealed class Link { public string To; public QuestCondition Condition; }
         private readonly QuestBookAsset book;
         private readonly Action changed;
+        private readonly Action<IReadOnlyDictionary<string, Rect>> moved;
         private readonly Action<IReadOnlyList<string>> deleted;
         private readonly Dictionary<string, Card> cards = new Dictionary<string, Card>();
-        public QuestRelationGraph(QuestBookAsset book, Action<string> selected, Action changed, bool initialView = true, Action<IReadOnlyList<string>> deleted = null, Action<string> opened = null)
+        public QuestRelationGraph(QuestBookAsset book, Action<string> selected, Action changed, bool initialView = true, Action<IReadOnlyList<string>> deleted = null, Action<string> opened = null, Action<IReadOnlyDictionary<string, Rect>> moved = null)
         {
-            this.book = book; this.changed = changed; this.deleted = deleted;
+            this.moved = moved; this.book = book; this.changed = changed; this.deleted = deleted;
             style.flexGrow = 1; style.backgroundColor = new Color(.10f, .12f, .15f);
-            SetupZoom(.15f, 1.5f); this.AddManipulator(new ContentDragger()); this.AddManipulator(new SelectionDragger()); this.AddManipulator(new RectangleSelector());
+            SetupZoom(.15f, 1.5f); this.AddManipulator(new ContentDragger()); this.AddManipulator(new QuestGraphPan()); this.AddManipulator(new SelectionDragger()); this.AddManipulator(new RectangleSelector());
             QuestEditorTheme.Apply(this);
             var grid = new GridBackground(); grid.AddToClassList("weave-grid"); Insert(0, grid); grid.StretchToParentSize();
             var depths = book.Quests.ToDictionary(q => q.Id, q => 0);
@@ -48,8 +49,8 @@ namespace DemonWeave.Editor
                 }, TrickleDown.TrickleDown);
                 card.style.width = 270;
                 card.titleContainer.Q<Label>().style.fontSize = 18;
-                card.Input = card.InstantiatePort(Orientation.Horizontal, Direction.Input, Port.Capacity.Multi, typeof(bool)); card.Input.portName = "Activation Conditions";
-                card.Output = card.InstantiatePort(Orientation.Horizontal, Direction.Output, Port.Capacity.Multi, typeof(bool)); card.Output.portName = "State";
+                card.Input = card.InstantiatePort(Orientation.Horizontal, Direction.Input, Port.Capacity.Multi, typeof(bool)); card.Input.portName = "Start";
+                card.Output = card.InstantiatePort(Orientation.Horizontal, Direction.Output, Port.Capacity.Multi, typeof(bool)); card.Output.portName = "Completed";
                 card.inputContainer.Add(card.Input); card.outputContainer.Add(card.Output);
                 var text = new Label(QuestBookAsset.IsDraft(quest) ? "Draft" : QuestAuthoringChecks.ConditionText(quest.Accept, Title)) { style = { whiteSpace = WhiteSpace.Normal, maxWidth = 250, paddingLeft = 8, paddingRight = 8, paddingBottom = 8 } };
                 card.extensionContainer.Add(text);
@@ -78,11 +79,12 @@ namespace DemonWeave.Editor
             return positions.Count > 1 && positions.Values.Select(p => p.position).Distinct().Count() < 2 ? null : positions;
         }
         public void RestorePositions(Dictionary<string, Rect> positions)
-        { foreach (var entry in positions) if (cards.TryGetValue(entry.Key, out var card)) card.SetPosition(entry.Value); }
+        { foreach (var entry in positions) if (cards.TryGetValue(entry.Key, out var card)) { var rect = card.GetPosition(); rect.position = entry.Value.position; card.SetPosition(rect); } }
         private string Title(string id) => book.Quests.FirstOrDefault(q => q.Id == id)?.Title ?? id;
-        public override List<Port> GetCompatiblePorts(Port start, NodeAdapter adapter) => ports.Where(p => p.direction != start.direction && p.node != start.node).ToList();
+        public override List<Port> GetCompatiblePorts(Port start, NodeAdapter adapter) => new List<Port>();
         private GraphViewChange OnChanged(GraphViewChange change)
         {
+            if (change.movedElements?.Count > 0) moved?.Invoke(CapturePositions());
             if (UnityEditor.EditorApplication.isPlaying) { change.edgesToCreate?.Clear(); change.elementsToRemove?.Clear(); return change; }
             var removedTasks = change.elementsToRemove?.OfType<Card>().Select(c => c.Id).ToArray();
             if (removedTasks != null && removedTasks.Length > 0)
@@ -90,26 +92,8 @@ namespace DemonWeave.Editor
                 change.elementsToRemove.Clear();
                 schedule.Execute(() => deleted?.Invoke(removedTasks)); return change;
             }
-            bool modified = false;
-            if (change.edgesToCreate != null)
-            {
-                foreach (var edge in change.edgesToCreate)
-                {
-                    var from = ((Card)edge.output.node).Id; var to = ((Card)edge.input.node).Id;
-                    var quest = book.Quests.First(q => q.Id == to);
-                    if (QuestAuthoringChecks.Dependencies(quest.Accept).Any(c => c.Subject == from && c.State == QuestStatus.Completed)) continue;
-                    QuestAuthoringChecks.Edit(book, "Add Quest Dependency", _ => {
-                        if (quest.Accept.Kind != ConditionKind.All) quest.Accept = new QuestCondition { Kind = ConditionKind.All, Children = new List<QuestCondition> { quest.Accept } };
-                        quest.Accept.Children.Add(new QuestCondition { Kind = ConditionKind.QuestState, Subject = from, State = QuestStatus.Completed });
-                    }); modified = true;
-                }
-                change.edgesToCreate.Clear();
-            }
-            if (change.elementsToRemove != null)
-                foreach (var edge in change.elementsToRemove.OfType<Edge>())
-                    if (edge.userData is Link link)
-                    { QuestAuthoringChecks.Edit(book, "Remove Quest Dependency", _ => QuestAuthoringChecks.RemoveCondition(book.Quests.First(q => q.Id == link.To), link.Condition)); modified = true; }
-            if (modified) schedule.Execute(changed).ExecuteLater(1);
+            change.edgesToCreate?.Clear();
+            change.elementsToRemove?.Clear();
             return change;
         }
         public void UpdateStates(QuestRun run)

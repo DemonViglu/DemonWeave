@@ -4,7 +4,6 @@ using UnityEngine;
 
 namespace DemonWeave.Unity
 {
-    [CreateAssetMenu(menuName = "DemonWeave/Node Types/Wait for Fact", fileName = "WaitForFact")]
     public sealed class FactNodeType : QuestNodeType
     {
         public string Fact = "";

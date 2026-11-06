@@ -96,7 +96,9 @@ namespace DemonWeave.Quests
                     if (!failed)
                     { changed |= RefreshStages(instance); RefreshContents(instance); failed = Satisfied(instance, instance.Definition.Fail, instance.Definition.FailCombination); }
                     bool finished = (instance.Definition.Finish.Count == 0 || Satisfied(instance, instance.Definition.Finish, instance.Definition.FinishCombination))
-                        && instance.Stages.Where(s => s.Definition.Required).All(s => s.State == QuestStatus.Completed);
+                        && (instance.Definition.StageCompletion == RuleCombination.Any
+                            ? instance.Stages.Any(s => s.Definition.Required && s.State == QuestStatus.Completed && (string.IsNullOrEmpty(s.Definition.FinishResult) || s.Result == s.Definition.FinishResult))
+                            : instance.Stages.Where(s => s.Definition.Required).All(s => s.State == QuestStatus.Completed && (string.IsNullOrEmpty(s.Definition.FinishResult) || s.Result == s.Definition.FinishResult)));
                     if (!failed && !finished) continue;
                     // Explicit local failure precedence; trace the conflict instead of hiding the policy.
                     if (failed && finished) Emit(instance, QuestNoticeKind.Diagnostic, "Finish and fail both satisfied; configured local policy gives fail precedence.");
@@ -137,6 +139,7 @@ namespace DemonWeave.Quests
                 case ConditionKind.Any: return condition.Children.Any(c => Evaluate(c, owner));
                 case ConditionKind.QuestState: return Find(condition.Subject)?.State == condition.State;
                 case ConditionKind.StageState: return owner?.Stage(condition.Subject)?.State == condition.State;
+                case ConditionKind.StageResult: return owner?.Stage(condition.Subject)?.State == QuestStatus.Completed && owner.Stage(condition.Subject).Result == condition.Key;
                 case ConditionKind.Fact: return world.ReadFact(condition.Subject, condition.Key) is bool actual && actual == condition.Expected;
                 default: throw new InvalidOperationException("Condition was not validated.");
             }

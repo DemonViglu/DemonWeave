@@ -4,14 +4,20 @@ using System.Linq;
 
 namespace DemonWeave.Quests
 {
+    public enum QuestControl { None, Parallel, All, Any }
+
     [Serializable]
     public sealed class QuestStage
     {
         public string Id = "";
         public string TypeId = "core.stage";
         public string EntityRole = "";
+        public QuestControl Control;
+        public List<string> Results = new List<string>();
         public string Title = "";
+        public string Comment; // null inherits the Entity comment; empty explicitly hides it.
         public bool Required = true;
+        public string FinishResult = "";
         public List<string> After = new List<string>();
         public QuestCondition OpenWhen = new QuestCondition { Kind = ConditionKind.All };
         public List<QuestContent> Objectives = new List<QuestContent>();
@@ -20,7 +26,7 @@ namespace DemonWeave.Quests
         public List<QuestExec> FinishExec = new List<QuestExec>();
         public List<QuestRoute> Routes = new List<QuestRoute>();
         public List<RouteSwitch> Switches = new List<RouteSwitch>();
-        public QuestStage Copy() => new QuestStage { Id = Id, TypeId = TypeId, EntityRole = EntityRole, Title = Title, Required = Required,
+        public QuestStage Copy() => new QuestStage { Id = Id, TypeId = TypeId, EntityRole = EntityRole, Control = Control, Results = Results?.ToList(), Title = Title, Comment = Comment, Required = Required, FinishResult = FinishResult,
             After = After?.ToList(), OpenWhen = OpenWhen?.Copy(), Objectives = Objectives?.Select(x => x?.Copy()).ToList(), Completion = Completion,
             BeginExec = BeginExec?.Select(x => x?.Copy()).ToList(), FinishExec = FinishExec?.Select(x => x?.Copy()).ToList(),
             Routes = Routes?.Select(x => x?.Copy()).ToList(), Switches = Switches?.Select(x => x?.Copy()).ToList() };
@@ -63,7 +69,10 @@ namespace DemonWeave.Quests
         internal readonly List<RouteChoice> Choices = new List<RouteChoice>();
         public string Id => Definition.Id;
         public string Title => Definition.Title;
+        public bool UsesEntity => Definition.Control == QuestControl.None && Definition.Results.Count > 0;
+        public string EntityRole => Definition.EntityRole;
         public QuestStatus State { get; internal set; } = QuestStatus.Waiting;
+        public string Result { get; internal set; } = "";
         public string SelectedRouteId { get; internal set; } = "";
         public long RouteRevision { get; internal set; }
         public IReadOnlyList<RouteChoice> ChoiceHistory => Choices.AsReadOnly();

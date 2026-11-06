@@ -15,82 +15,77 @@ MonoBehaviour:
   Id: courtyard-rescue
   Title: Courtyard Rescue
   definitionJson: "[\r\n  {\r\n    \"Id\": \"courtyard-rescue\",\r\n    \"Title\":
-    \"Rescue the captive\",\r\n    \"ParentId\": \"\",\r\n    \"Accept\": {\r\n     
-    \"Kind\": \"All\",\r\n      \"Subject\": \"\",\r\n      \"Key\": \"\",\r\n     
-    \"Expected\": true,\r\n      \"State\": \"Completed\",\r\n      \"Children\":
-    []\r\n    },\r\n    \"FinishCombination\": \"All\",\r\n    \"FailCombination\":
-    \"Any\",\r\n    \"Finish\": [],\r\n    \"Fail\": [],\r\n    \"BeginExec\": [],\r\n   
-    \"FinishExec\": [],\r\n    \"FailExec\": [],\r\n    \"Stages\": [\r\n      {\r\n       
-    \"Id\": \"enter\",\r\n        \"TypeId\": \"core.stage\",\r\n        \"EntityRole\":
-    \"entity:680752b11bae4be1b58cc113f59de460\",\r\n        \"Title\": \"Reach the
-    courtyard\",\r\n        \"Required\": true,\r\n        \"After\": [],\r\n       
-    \"OpenWhen\": {\r\n          \"Kind\": \"All\",\r\n          \"Subject\": \"\",\r\n         
-    \"Key\": \"\",\r\n          \"Expected\": true,\r\n          \"State\": \"Completed\",\r\n         
-    \"Children\": []\r\n        },\r\n        \"Objectives\": [\r\n          {\r\n           
-    \"Id\": \"entered\",\r\n            \"Label\": \"Enter the marked courtyard\",\r\n           
-    \"Kind\": \"Fact\",\r\n            \"Subject\": \"\",\r\n            \"Key\":
-    \"entered\",\r\n            \"Required\": 1,\r\n            \"Expected\": true,\r\n           
-    \"State\": \"Completed\"\r\n          }\r\n        ],\r\n        \"Completion\":
-    \"All\",\r\n        \"BeginExec\": [],\r\n        \"FinishExec\": [],\r\n       
-    \"Routes\": [],\r\n        \"Switches\": []\r\n      },\r\n      {\r\n       
-    \"Id\": \"prepare\",\r\n        \"TypeId\": \"core.stage\",\r\n        \"EntityRole\":
-    \"entity:e3b39849d5d643c09704ef1ddc635a52\",\r\n        \"Title\": \"Breach the
-    prison gate\",\r\n        \"Required\": true,\r\n        \"After\": [\r\n         
-    \"enter\"\r\n        ],\r\n        \"OpenWhen\": {\r\n          \"Kind\": \"All\",\r\n         
-    \"Subject\": \"\",\r\n          \"Key\": \"\",\r\n          \"Expected\": true,\r\n         
-    \"State\": \"Completed\",\r\n          \"Children\": []\r\n        },\r\n       
-    \"Objectives\": [\r\n          {\r\n            \"Id\": \"prepared\",\r\n           
-    \"Label\": \"Wait for the gate and guards\",\r\n            \"Kind\": \"Fact\",\r\n           
-    \"Subject\": \"\",\r\n            \"Key\": \"prepared\",\r\n            \"Required\":
-    1,\r\n            \"Expected\": true,\r\n            \"State\": \"Completed\"\r\n         
-    }\r\n        ],\r\n        \"Completion\": \"All\",\r\n        \"BeginExec\":
-    [\r\n          {\r\n            \"Id\": \"opening\",\r\n            \"CapabilityId\":
-    \"rescue.prepare\",\r\n            \"ArgumentsJson\": \"{\\\"door\\\":\\\"entity:5f6c1aa246f045f6bd5a98973f341f87\\\",\\\"timeout\\\":20.0}\"\r\n         
-    }\r\n        ],\r\n        \"FinishExec\": [],\r\n        \"Routes\": [],\r\n       
+    \"Rescue the captive\",\r\n    \"ParentId\": \"\",\r\n    \"StartComment\": \"\",\r\n   
+    \"FinishComment\": \"\",\r\n    \"Accept\": {\r\n      \"Kind\": \"All\",\r\n     
+    \"Subject\": \"\",\r\n      \"Key\": \"\",\r\n      \"Expected\": true,\r\n     
+    \"State\": \"Completed\",\r\n      \"Children\": []\r\n    },\r\n    \"StageCompletion\":
+    \"Any\",\r\n    \"FinishCombination\": \"All\",\r\n    \"FailCombination\": \"Any\",\r\n   
+    \"Finish\": [],\r\n    \"Fail\": [],\r\n    \"BeginExec\": [],\r\n    \"FinishExec\":
+    [],\r\n    \"FailExec\": [],\r\n    \"Stages\": [\r\n      {\r\n        \"Id\":
+    \"enter\",\r\n        \"TypeId\": \"core.stage\",\r\n        \"EntityRole\":
+    \"entity:680752b11bae4be1b58cc113f59de460\",\r\n        \"Control\": \"None\",\r\n       
+    \"Results\": [\r\n          \"Entered\"\r\n        ],\r\n        \"Title\": \"Reach
+    the courtyard\",\r\n        \"Comment\": null,\r\n        \"Required\": false,\r\n       
+    \"FinishResult\": \"\",\r\n        \"After\": [],\r\n        \"OpenWhen\": {\r\n         
+    \"Kind\": \"All\",\r\n          \"Subject\": \"\",\r\n          \"Key\": \"\",\r\n         
+    \"Expected\": true,\r\n          \"State\": \"Completed\",\r\n          \"Children\":
+    []\r\n        },\r\n        \"Objectives\": [],\r\n        \"Completion\": \"All\",\r\n       
+    \"BeginExec\": [],\r\n        \"FinishExec\": [],\r\n        \"Routes\": [],\r\n       
+    \"Switches\": []\r\n      },\r\n      {\r\n        \"Id\": \"prepare\",\r\n       
+    \"TypeId\": \"core.stage\",\r\n        \"EntityRole\": \"entity:17aec0d8014042cfa8f129a45202bb4c\",\r\n       
+    \"Control\": \"None\",\r\n        \"Results\": [\r\n          \"Ready\",\r\n         
+    \"Defeated\"\r\n        ],\r\n        \"Title\": \"Breach the prison gate\",\r\n       
+    \"Comment\": null,\r\n        \"Required\": false,\r\n        \"FinishResult\":
+    \"\",\r\n        \"After\": [],\r\n        \"OpenWhen\": {\r\n          \"Kind\":
+    \"StageResult\",\r\n          \"Subject\": \"enter\",\r\n          \"Key\": \"Entered\",\r\n         
+    \"Expected\": true,\r\n          \"State\": \"Completed\",\r\n          \"Children\":
+    []\r\n        },\r\n        \"Objectives\": [],\r\n        \"Completion\": \"All\",\r\n       
+    \"BeginExec\": [],\r\n        \"FinishExec\": [],\r\n        \"Routes\": [],\r\n       
     \"Switches\": []\r\n      },\r\n      {\r\n        \"Id\": \"clear\",\r\n       
-    \"TypeId\": \"core.stage\",\r\n        \"EntityRole\": \"entity:e3b39849d5d643c09704ef1ddc635a52\",\r\n       
-    \"Title\": \"Defeat the prison guards\",\r\n        \"Required\": true,\r\n       
-    \"After\": [\r\n          \"prepare\"\r\n        ],\r\n        \"OpenWhen\":
-    {\r\n          \"Kind\": \"All\",\r\n          \"Subject\": \"\",\r\n         
-    \"Key\": \"\",\r\n          \"Expected\": true,\r\n          \"State\": \"Completed\",\r\n         
-    \"Children\": []\r\n        },\r\n        \"Objectives\": [\r\n          {\r\n           
-    \"Id\": \"cleared\",\r\n            \"Label\": \"Defeat this encounter's guards\",\r\n           
-    \"Kind\": \"Fact\",\r\n            \"Subject\": \"\",\r\n            \"Key\":
-    \"cleared\",\r\n            \"Required\": 1,\r\n            \"Expected\": true,\r\n           
-    \"State\": \"Completed\"\r\n          }\r\n        ],\r\n        \"Completion\":
+    \"TypeId\": \"core.stage\",\r\n        \"EntityRole\": \"entity:63f6790e7dc54ebf96031f00a70e3b42\",\r\n       
+    \"Control\": \"None\",\r\n        \"Results\": [\r\n          \"Cleared\",\r\n         
+    \"Defeated\"\r\n        ],\r\n        \"Title\": \"Defeat the prison guards\",\r\n       
+    \"Comment\": null,\r\n        \"Required\": false,\r\n        \"FinishResult\":
+    \"\",\r\n        \"After\": [],\r\n        \"OpenWhen\": {\r\n          \"Kind\":
+    \"StageResult\",\r\n          \"Subject\": \"prepare\",\r\n          \"Key\":
+    \"Ready\",\r\n          \"Expected\": true,\r\n          \"State\": \"Completed\",\r\n         
+    \"Children\": []\r\n        },\r\n        \"Objectives\": [],\r\n        \"Completion\":
     \"All\",\r\n        \"BeginExec\": [],\r\n        \"FinishExec\": [],\r\n       
     \"Routes\": [],\r\n        \"Switches\": []\r\n      },\r\n      {\r\n       
     \"Id\": \"rescue\",\r\n        \"TypeId\": \"core.stage\",\r\n        \"EntityRole\":
-    \"entity:e3b39849d5d643c09704ef1ddc635a52\",\r\n        \"Title\": \"Free your
-    companion\",\r\n        \"Required\": true,\r\n        \"After\": [\r\n         
-    \"clear\"\r\n        ],\r\n        \"OpenWhen\": {\r\n          \"Kind\": \"All\",\r\n         
-    \"Subject\": \"\",\r\n          \"Key\": \"\",\r\n          \"Expected\": true,\r\n         
-    \"State\": \"Completed\",\r\n          \"Children\": []\r\n        },\r\n       
-    \"Objectives\": [\r\n          {\r\n            \"Id\": \"rescued\",\r\n           
-    \"Label\": \"Release the captive\",\r\n            \"Kind\": \"Fact\",\r\n           
-    \"Subject\": \"\",\r\n            \"Key\": \"rescued\",\r\n            \"Required\":
-    1,\r\n            \"Expected\": true,\r\n            \"State\": \"Completed\"\r\n         
-    },\r\n          {\r\n            \"Id\": \"dialogue\",\r\n            \"Label\":
-    \"Finish the rescue conversation\",\r\n            \"Kind\": \"Fact\",\r\n           
-    \"Subject\": \"\",\r\n            \"Key\": \"dialogue-finished\",\r\n           
-    \"Required\": 1,\r\n            \"Expected\": true,\r\n            \"State\":
-    \"Completed\"\r\n          }\r\n        ],\r\n        \"Completion\": \"All\",\r\n       
-    \"BeginExec\": [\r\n          {\r\n            \"Id\": \"allow-rescue\",\r\n           
-    \"CapabilityId\": \"rescue.enable\",\r\n            \"ArgumentsJson\": \"{}\"\r\n         
-    }\r\n        ],\r\n        \"FinishExec\": [],\r\n        \"Routes\": [],\r\n       
-    \"Switches\": []\r\n      },\r\n      {\r\n        \"Id\": \"defeat\",\r\n       
-    \"TypeId\": \"core.stage\",\r\n        \"EntityRole\": \"entity:e3b39849d5d643c09704ef1ddc635a52\",\r\n       
-    \"Title\": \"Return after defeat\",\r\n        \"Required\": false,\r\n       
-    \"After\": [],\r\n        \"OpenWhen\": {\r\n          \"Kind\": \"Fact\",\r\n         
-    \"Subject\": \"\",\r\n          \"Key\": \"player-defeated\",\r\n          \"Expected\":
+    \"entity:42abb92340b14159b61f023ce22c0c88\",\r\n        \"Control\": \"None\",\r\n       
+    \"Results\": [\r\n          \"Rescued\",\r\n          \"Defeated\"\r\n       
+    ],\r\n        \"Title\": \"Free your companion\",\r\n        \"Comment\": null,\r\n       
+    \"Required\": true,\r\n        \"FinishResult\": \"Rescued\",\r\n        \"After\":
+    [],\r\n        \"OpenWhen\": {\r\n          \"Kind\": \"StageResult\",\r\n         
+    \"Subject\": \"clear\",\r\n          \"Key\": \"Cleared\",\r\n          \"Expected\":
     true,\r\n          \"State\": \"Completed\",\r\n          \"Children\": []\r\n       
-    },\r\n        \"Objectives\": [\r\n          {\r\n            \"Id\": \"defeated\",\r\n           
-    \"Label\": \"Player defeated during encounter\",\r\n            \"Kind\": \"Fact\",\r\n           
-    \"Subject\": \"\",\r\n            \"Key\": \"player-defeated\",\r\n           
-    \"Required\": 1,\r\n            \"Expected\": true,\r\n            \"State\":
-    \"Completed\"\r\n          }\r\n        ],\r\n        \"Completion\": \"All\",\r\n       
-    \"BeginExec\": [],\r\n        \"FinishExec\": [\r\n          {\r\n           
-    \"Id\": \"restore\",\r\n            \"CapabilityId\": \"rescue.restore\",\r\n           
-    \"ArgumentsJson\": \"{}\"\r\n          }\r\n        ],\r\n        \"Routes\":
-    [],\r\n        \"Switches\": []\r\n      }\r\n    ],\r\n    \"CancelChildrenOnEnd\":
-    false\r\n  }\r\n]"
+    },\r\n        \"Objectives\": [],\r\n        \"Completion\": \"All\",\r\n       
+    \"BeginExec\": [],\r\n        \"FinishExec\": [],\r\n        \"Routes\": [],\r\n       
+    \"Switches\": []\r\n      },\r\n      {\r\n        \"Id\": \"defeat\",\r\n       
+    \"TypeId\": \"core.stage\",\r\n        \"EntityRole\": \"entity:0a02d491acec41b380c7048a714b74a6\",\r\n       
+    \"Control\": \"None\",\r\n        \"Results\": [\r\n          \"Requested\"\r\n       
+    ],\r\n        \"Title\": \"Return after defeat\",\r\n        \"Comment\": null,\r\n       
+    \"Required\": false,\r\n        \"FinishResult\": \"\",\r\n        \"After\":
+    [],\r\n        \"OpenWhen\": {\r\n          \"Kind\": \"Any\",\r\n          \"Subject\":
+    \"\",\r\n          \"Key\": \"\",\r\n          \"Expected\": true,\r\n         
+    \"State\": \"Completed\",\r\n          \"Children\": [\r\n            {\r\n             
+    \"Kind\": \"StageResult\",\r\n              \"Subject\": \"prepare\",\r\n             
+    \"Key\": \"Defeated\",\r\n              \"Expected\": true,\r\n             
+    \"State\": \"Completed\",\r\n              \"Children\": []\r\n            },\r\n           
+    {\r\n              \"Kind\": \"StageResult\",\r\n              \"Subject\": \"clear\",\r\n             
+    \"Key\": \"Defeated\",\r\n              \"Expected\": true,\r\n             
+    \"State\": \"Completed\",\r\n              \"Children\": []\r\n            },\r\n           
+    {\r\n              \"Kind\": \"StageResult\",\r\n              \"Subject\": \"rescue\",\r\n             
+    \"Key\": \"Defeated\",\r\n              \"Expected\": true,\r\n             
+    \"State\": \"Completed\",\r\n              \"Children\": []\r\n            }\r\n         
+    ]\r\n        },\r\n        \"Objectives\": [],\r\n        \"Completion\": \"All\",\r\n       
+    \"BeginExec\": [],\r\n        \"FinishExec\": [],\r\n        \"Routes\": [],\r\n       
+    \"Switches\": []\r\n      }\r\n    ],\r\n    \"CancelChildrenOnEnd\": false\r\n 
+    }\r\n]"
+  editorLayoutJson: "{\r\n  \"courtyard-rescue\": {\r\n    \"$guide:Start\": [\r\n     
+    -300,\r\n      120\r\n    ],\r\n    \"enter\": [\r\n      0,\r\n      120\r\n   
+    ],\r\n    \"prepare\": [\r\n      330,\r\n      120\r\n    ],\r\n    \"clear\":
+    [\r\n      660,\r\n      120\r\n    ],\r\n    \"rescue\": [\r\n      990,\r\n     
+    120\r\n    ],\r\n    \"defeat\": [\r\n      660,\r\n      460\r\n    ],\r\n   
+    \"$guide:Finish\": [\r\n      1320,\r\n      120\r\n    ]\r\n  }\r\n}"

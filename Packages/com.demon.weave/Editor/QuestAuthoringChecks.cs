@@ -19,6 +19,12 @@ namespace DemonWeave.Editor
                 if (definitions.Count == 0) return Array.Empty<QuestDiagnostic>();
                 var bindings = host == null ? null : new QuestBindings(host.BindingEntries);
                 var catalog = host?.CreateCapabilities();
+                if (host != null)
+                    foreach (var quest in definitions) foreach (var node in quest.Stages.Where(n => n.Control == QuestControl.None && n.Results.Count > 0)) {
+                        var entity = host.BindingEntries.FirstOrDefault(b => b.Role == node.EntityRole)?.Entity;
+                        var error = !entity ? "Target Entity is missing." : !entity.Results.SequenceEqual(node.Results) ? "Entity result contract differs. Rebind the target to refresh it." : entity.CheckConfiguration();
+                        if (!string.IsNullOrEmpty(error)) return new[] { new QuestDiagnostic(quest.Title + "/" + node.Title, "entity.configuration", error) };
+                    }
                 return QuestValidation.Validate(definitions,
                     bindings == null ? (Func<string, bool>)null : role => bindings.Find(role),
                     catalog == null ? (Func<string, string, string>)null : catalog.Validate,
@@ -65,6 +71,7 @@ namespace DemonWeave.Editor
             if (condition == null) return "Missing condition";
             if (condition.Kind == ConditionKind.QuestState) return title(condition.Subject) + " / " + Status(condition.State);
             if (condition.Kind == ConditionKind.StageState) return "Node " + condition.Subject + " / " + Status(condition.State);
+            if (condition.Kind == ConditionKind.StageResult) return "Node " + condition.Subject + " / " + condition.Key;
             if (condition.Kind == ConditionKind.Fact) return condition.Subject + "." + condition.Key + " = " + condition.Expected;
             if (condition.Children == null || condition.Children.Count == 0) return condition.Kind == ConditionKind.All ? "No prerequisites" : "Empty Any condition";
             return (condition.Kind == ConditionKind.All ? "All" : "Any") + "（" + string.Join("；", condition.Children.Select(c => ConditionText(c, title))) + "）";

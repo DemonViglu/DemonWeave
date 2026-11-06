@@ -16,8 +16,8 @@ namespace DemonWeave.Editor
     public static class QuestTables
     {
         private static readonly Dictionary<string,string[]> Columns = new Dictionary<string,string[]> {
-            ["Quests"] = Split("QuestId,Order,Title,ParentId,FinishCombination,FailCombination,CancelChildrenOnEnd"),
-            ["Nodes"] = Split("QuestId,NodeId,Order,TypeId,EntityRole,Title,Required,Completion"),
+            ["Quests"] = Split("QuestId,Order,Title,ParentId,FinishCombination,FailCombination,CancelChildrenOnEnd,StageCompletion,StartComment,FinishComment"),
+            ["Nodes"] = Split("QuestId,NodeId,Order,TypeId,EntityRole,Title,Required,Completion,Results,Comment,Control,FinishResult"),
             ["Links"] = Split("QuestId,FromNode,Output,ToNode,Order"),
             ["Routes"] = Split("QuestId,NodeId,RouteId,Order,Title,Completion"),
             ["Switches"] = Split("QuestId,NodeId,SwitchId,Order,From,To"),
@@ -76,14 +76,14 @@ namespace DemonWeave.Editor
             foreach(JObject quest in JArray.Parse(book.ExportDefinitions()))
             {
                 string q=(string)quest["Id"]; var owner=Owner(q); owner["Order"]=(qi++).ToString();
-                Scalars(owner,quest,"Title","ParentId","FinishCombination","FailCombination","CancelChildrenOnEnd"); Add("Quests",owner);
+                Scalars(owner,quest,"Title","ParentId","FinishCombination","FailCombination","CancelChildrenOnEnd","StageCompletion","StartComment","FinishComment"); Add("Quests",owner);
                 Conditions((JObject)quest["Accept"],Owner(q));
                 Objectives((JArray)quest["Finish"],Owner(q,slot:"Finish")); Objectives((JArray)quest["Fail"],Owner(q,slot:"Fail"));
                 foreach(var slot in new[]{"BeginExec","FinishExec","FailExec"}) Actions((JArray)quest[slot],Owner(q,slot:slot));
                 int ni=0;
                 foreach(JObject node in (JArray)quest["Stages"])
                 {
-                    string n=(string)node["Id"]; var nr=Owner(q,n); nr["Order"]=(ni++).ToString(); Scalars(nr,node,"TypeId","EntityRole","Title","Required","Completion"); Add("Nodes",nr);
+                    string n=(string)node["Id"]; var nr=Owner(q,n); nr["Order"]=(ni++).ToString(); Scalars(nr,node,"TypeId","EntityRole","Title","Required","Completion","Results","Control","FinishResult"); nr["Comment"]=node["Comment"]?.ToString(Formatting.None) ?? "null"; Add("Nodes",nr);
                     Conditions((JObject)node["OpenWhen"],Owner(q,n)); Objectives((JArray)node["Objectives"],Owner(q,n,slot:"Objectives"));
                     foreach(var slot in new[]{"BeginExec","FinishExec"}) Actions((JArray)node[slot],Owner(q,n,slot:slot));
                     int li=0; foreach(string previous in (JArray)node["After"]) Add("Links",new Row { ["QuestId"]=q,["FromNode"]=previous,["Output"]="Completed",["ToNode"]=n,["Order"]=(li++).ToString() });
@@ -172,7 +172,7 @@ namespace DemonWeave.Editor
             foreach(var row in Take("Quests",_=>true))
             {
                 string q=row.Get("QuestId"); var quest=Values(row,"QuestId","Title","ParentId","FinishCombination","FailCombination","CancelChildrenOnEnd");
-                quest["Accept"]=Condition(q); quest["Finish"]=Objectives(q,"","","Finish"); quest["Fail"]=Objectives(q,"","","Fail");
+                quest["StageCompletion"]=row.Get("StageCompletion"); quest["StartComment"]=row.Get("StartComment"); quest["FinishComment"]=row.Get("FinishComment"); quest["Accept"]=Condition(q); quest["Finish"]=Objectives(q,"","","Finish"); quest["Fail"]=Objectives(q,"","","Fail");
                 foreach(var slot in new[]{"BeginExec","FinishExec","FailExec"}) quest[slot]=Actions(q,"","",slot);
                 var nodes=new JArray(); quest["Stages"]=nodes;
                 foreach(var nr in Take("Nodes",x=>x.Get("QuestId")==q)) {
@@ -211,7 +211,7 @@ namespace DemonWeave.Editor
                         nodes.Add(JObject.FromObject(generated,JsonSerializer.Create(new JsonSerializerSettings { Converters={ new Newtonsoft.Json.Converters.StringEnumConverter() } })));
                         continue;
                     }
-                    var node=Values(nr,"NodeId","TypeId","EntityRole","Title","Required","Completion"); node["OpenWhen"]=Condition(q,n); node["Objectives"]=Objectives(q,n,"","Objectives");
+                    var node=Values(nr,"NodeId","TypeId","EntityRole","Title","Required","Completion"); node["Control"]=nr.Get("Control"); node["FinishResult"]=nr.Get("FinishResult"); node["Results"]=JArray.Parse(nr.Get("Results")); node["Comment"]=JToken.Parse(nr.Get("Comment")); node["OpenWhen"]=Condition(q,n); node["Objectives"]=Objectives(q,n,"","Objectives");
                     foreach(var slot in new[]{"BeginExec","FinishExec"}) node[slot]=Actions(q,n,"",slot);
                     node["After"]=new JArray(Take("Links",x=>x.Get("QuestId")==q && x.Get("ToNode")==n).Select(link=> {
                         if(link.Get("Output")!="Completed") throw new FormatException(link.Source+".Output: use Completed; fact gates belong in Conditions.csv."); return link.Get("FromNode");
@@ -282,10 +282,10 @@ namespace DemonWeave.Editor
             }
             if(quoted) throw new FormatException(path+": unterminated quoted cell.");
             if(cell.Length>0||closed||record.Count>0){EndCell();records.Add(record);}
-            if(records.Count==0 || !records[0].SequenceEqual(columns)) throw new FormatException(path+": unexpected columns. Export the current schema first.");
+            if(records.Count==0 || !columns.Where(c => c!="StageCompletion" && c!="Results" && c!="Comment" && c!="StartComment" && c!="FinishComment" && c!="Control" && c!="FinishResult").SequenceEqual(records[0].Where(c => c!="StageCompletion" && c!="Results" && c!="Comment" && c!="StartComment" && c!="FinishComment" && c!="Control" && c!="FinishResult")) || records[0].Distinct().Count()!=records[0].Count || records[0].Any(c=>!columns.Contains(c))) throw new FormatException(path+": unexpected columns. Export the current schema first.");
             var rows=new List<Row>(); for(int i=1;i<records.Count;i++) {
-                if(records[i].Count!=columns.Length) throw new FormatException(path+" record "+(i+1)+": wrong column count.");
-                var row=new Row {Source=Path.GetFileName(path)+" record "+(i+1)}; for(int j=0;j<columns.Length;j++) row.Add(columns[j],records[i][j]); rows.Add(row);
+                if(records[i].Count!=records[0].Count) throw new FormatException(path+" record "+(i+1)+": wrong column count.");
+                var row=new Row {Source=Path.GetFileName(path)+" record "+(i+1)}; foreach(var column in columns) { int index=records[0].IndexOf(column); row.Add(column,index>=0?records[i][index]:column=="Results"?"[]":column=="Comment"?"null":column=="StageCompletion"?"All":column=="Control"?"None":""); } rows.Add(row);
             }
             return rows;
         }

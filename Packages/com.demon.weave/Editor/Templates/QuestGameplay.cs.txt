@@ -1,18 +1,26 @@
 using DemonWeave.Unity;
 using UnityEngine;
 
-public sealed class #SCRIPTNAME# : QuestEntity
+public enum #SCRIPTNAME#Result { Done }
+
+public sealed class #SCRIPTNAME# : QuestEntity<#SCRIPTNAME#Result>
 {
-    private bool completed;
+    // Optional default node comment: public override string Comment => "Describe this ability";
+    // Use [ShowInQuest, SerializeField] for author-editable parameters.
+    // Use only [SerializeField] for references configured in the component Inspector.
+    // Return a field-specific error for missing required references.
+    public override string CheckConfiguration() => "";
+    public override QuestExecution CreateExecution() => new Execution();
 
-    [QuestCondition]
-    public bool IsComplete() => completed;
-
-    [QuestAction]
-    public void Complete()
+    private sealed class Execution : QuestExecution<#SCRIPTNAME#Result>
     {
-        // Replace this with your gameplay operation.
-        // Long-running operations should update the condition only when they actually finish.
-        completed = true;
+        // Per-activation variables belong here. Each node gets a fresh Execution.
+        protected override void OnStart()
+        {
+            // Start gameplay here. For an immediate operation:
+            Finish(#SCRIPTNAME#Result.Done);
+        }
+        // Override OnTick for polling, and OnStop to unsubscribe/cancel gameplay.
+        // OnStop runs once on completion, cancellation, or runner shutdown.
     }
 }

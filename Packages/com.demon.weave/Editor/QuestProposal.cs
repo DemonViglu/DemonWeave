@@ -41,7 +41,7 @@ namespace DemonWeave.Editor
     public static class QuestProposalReview
     {
         private static readonly HashSet<string> Fields = new HashSet<string>(new[] {
-            "Title", "ParentId", "Accept", "FinishCombination", "FailCombination", "Finish", "Fail", "BeginExec", "FinishExec", "FailExec", "CancelChildrenOnEnd", "Stages"
+            "Title", "ParentId", "StartComment", "FinishComment", "Accept", "StageCompletion", "FinishCombination", "FailCombination", "Finish", "Fail", "BeginExec", "FinishExec", "FailExec", "CancelChildrenOnEnd", "Stages"
         }, StringComparer.Ordinal);
         public static string Revision(QuestBookAsset book) => Hash(book.Id + "\n" + book.Title + "\n" + book.ExportDefinitions());
         private static string Bindings(IQuestAuthoringHost host) => host == null ? "unbound" : Hash(string.Join("\n", host.BindingEntries.OrderBy(b => b.Role).Select(b => b.Role + ":" + (b.Target ? (b.Entity ? b.Entity.Id : "object") + ":" + b.Target.GetEntityId() : "missing"))));
@@ -89,7 +89,7 @@ namespace DemonWeave.Editor
                 }
                 else if (operation.Op == "set-stage")
                 {
-                    var allowed = new[] { "TypeId", "EntityRole", "Title", "Required", "After", "OpenWhen", "Objectives", "Completion", "BeginExec", "FinishExec", "Routes", "Switches" };
+                    var allowed = new[] { "TypeId", "EntityRole", "Control", "Results", "Title", "Comment", "Required", "FinishResult", "After", "OpenWhen", "Objectives", "Completion", "BeginExec", "FinishExec", "Routes", "Switches" };
                     var stage = (quest?["Stages"] as JArray)?.OfType<JObject>().SingleOrDefault(s => (string)s["Id"] == operation.StageId);
                     if (stage == null || string.IsNullOrWhiteSpace(operation.StageId) || !allowed.Contains(operation.Field) || operation.Value == null)
                         throw new ArgumentException(path + ": set-stage requires an existing stage ID and allowed field.");
