@@ -14,6 +14,32 @@ namespace DemonWeave.Editor
 {
     public sealed partial class QuestEditorWindow
     {
+        private void BuildExecutionRules(VisualElement parent, QuestCondition running, Action<QuestCondition> setRunning, QuestCondition interrupt, Action<QuestCondition> setInterrupt)
+        {
+            var section = new Foldout { text = "Execution Rules", value = running.Kind == ConditionKind.WorldFact || interrupt != null };
+            parent.Add(section);
+            void Fact(string label, QuestCondition rule, Action<QuestCondition> set, bool optional)
+            {
+                section.Add(QuestFactPicker.Field(rule?.Kind == ConditionKind.WorldFact && !rule.Expected ? label + " (false)" : label,
+                    rule?.Kind == ConditionKind.WorldFact ? rule.Subject : "", id => Edit("Change " + label, () =>
+                        set(!string.IsNullOrEmpty(id) ? new QuestCondition { Kind = ConditionKind.WorldFact, Subject = id, Expected = rule?.Expected ?? true }
+                            : optional ? null : new QuestCondition { Kind = ConditionKind.All }))));
+                if (EditorApplication.isPlaying && rule?.Kind == ConditionKind.WorldFact && Host is QuestSceneHost runner)
+                {
+                    var currentValue = new Label(); section.Add(currentValue);
+                    void RefreshValue() { var actual = runner.WorldState ? runner.WorldState.Read(rule.Subject) : null; currentValue.text = "Current value: " + (actual?.ToString() ?? "Unavailable"); }
+                    RefreshValue(); currentValue.schedule.Execute(RefreshValue).Every(350);
+                }
+                if (rule != null && rule.Kind != ConditionKind.WorldFact && !(rule.Kind == ConditionKind.All && rule.Children.Count == 0))
+                    section.Add(new HelpBox("A custom condition is configured. Replacing this field replaces that condition.", HelpBoxMessageType.Info));
+            }
+            Fact("Run while", running, setRunning, false);
+            var sourceKind = interrupt == null ? "None" : interrupt.Kind == ConditionKind.ExternalQuestCompleted ? "Quest completion" : "World Fact";
+            Choice(section, "Interrupt source", new List<string> { "None", "World Fact", "Quest completion" }, sourceKind,
+                value => Edit("Change interruption source", () => setInterrupt(value == "None" ? null : new QuestCondition { Kind = value == "World Fact" ? ConditionKind.WorldFact : ConditionKind.ExternalQuestCompleted })));
+            if (interrupt?.Kind == ConditionKind.ExternalQuestCompleted) BuildCondition(section, interrupt, setInterrupt, 0);
+            else if (interrupt != null) Fact("Interrupt when", interrupt, setInterrupt, true);
+        }
         private void BuildCondition(VisualElement parent, QuestCondition condition, Action<QuestCondition> replace, int depth)
         {
             if (condition == null || depth > 16) { parent.Add(new HelpBox("Missing condition or nesting limit exceeded.", HelpBoxMessageType.Error)); return; }
@@ -31,9 +57,8 @@ namespace DemonWeave.Editor
             }
             if (condition.Kind == ConditionKind.WorldFact)
             {
-                var assets = AssetDatabase.FindAssets("t:QuestWorldFact").Select(g => AssetDatabase.LoadAssetAtPath<QuestWorldFact>(AssetDatabase.GUIDToAssetPath(g)));
-                var field = new UnityEditor.UIElements.ObjectField("World fact") { objectType = typeof(QuestWorldFact), value = assets.FirstOrDefault(f => f && f.Id == condition.Subject) };
-                field.RegisterValueChangedCallback(evt => Edit("Change world fact", () => condition.Subject = (evt.newValue as QuestWorldFact)?.Id ?? "")); parent.Add(field);
+                parent.Add(QuestFactPicker.Field("World fact", condition.Subject,
+                    id => Edit("Change world fact", () => condition.Subject = id)));
                 var expected = new Toggle("Must be true") { value = condition.Expected }; expected.RegisterValueChangedCallback(evt => Edit("Change fact requirement", () => condition.Expected = evt.newValue)); parent.Add(expected);
                 parent.Add(new Button(() => Edit("Remove condition", () => replace(new QuestCondition { Kind = ConditionKind.All }))) { text = "Remove" }); return;
             }

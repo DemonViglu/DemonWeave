@@ -328,7 +328,7 @@ namespace DemonWeave.Editor
                 {
                     if (!string.IsNullOrEmpty(selectedStageId)) live.text += "\n" + sceneHost.ExecutionStatus(selectedId, selectedStageId);
                     if (instance?.IsPaused == true && !string.IsNullOrEmpty(selectedStageId)) live.text += "\n" + string.Join("\n", run.Explain(selectedId));
-                    if (sceneHost.WorldState) foreach (var fact in sceneHost.WorldState.Facts.Where(f => f)) live.text = live.text.Replace(fact.Id, string.IsNullOrEmpty(fact.Label) ? fact.name : fact.Label);
+                    if (sceneHost.WorldState) foreach (var fact in sceneHost.WorldState.Facts.Where(f => f != null)) live.text = live.text.Replace(fact.Id, string.IsNullOrEmpty(fact.Label) ? fact.Id : fact.Label);
                 }
                 return;
             }

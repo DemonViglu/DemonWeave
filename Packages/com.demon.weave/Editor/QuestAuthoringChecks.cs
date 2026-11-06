@@ -104,8 +104,8 @@ namespace DemonWeave.Editor
             if (condition.Kind == ConditionKind.QuestState) return title(condition.Subject) + " / " + Status(condition.State);
             if (condition.Kind == ConditionKind.StageState) return "Node " + condition.Subject + " / " + Status(condition.State);
             if (condition.Kind == ConditionKind.WorldFact) {
-                var fact = AssetDatabase.FindAssets("t:QuestWorldFact").Select(g => AssetDatabase.LoadAssetAtPath<QuestWorldFact>(AssetDatabase.GUIDToAssetPath(g))).FirstOrDefault(f => f && f.Id == condition.Subject);
-                return (fact ? (string.IsNullOrEmpty(fact.Label) ? fact.name : fact.Label) : "Missing world fact") + " = " + condition.Expected;
+                var fact = QuestFactPicker.Entries().FirstOrDefault(f => f.id == condition.Subject);
+                return (fact.label ?? "Missing world fact") + " = " + condition.Expected;
             }
             if (condition.Kind == ConditionKind.ExternalQuestCompleted) {
                 var book = AssetDatabase.FindAssets("t:QuestBookAsset").Select(g => AssetDatabase.LoadAssetAtPath<QuestBookAsset>(AssetDatabase.GUIDToAssetPath(g))).FirstOrDefault(b => b && b.Id == condition.Subject);

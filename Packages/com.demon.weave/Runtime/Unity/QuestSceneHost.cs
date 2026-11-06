@@ -152,9 +152,9 @@ namespace DemonWeave.Unity
                     if (rule.Kind != ConditionKind.WorldFact && rule.Kind != ConditionKind.ExternalQuestCompleted) continue;
                     var state = WorldState;
                     if (!state) return "Select a World State service on the runner for " + quest.Title + ".";
-                    if (state.Facts.Any(f => !f) || state.Facts.Where(f => f).GroupBy(f => f.Id).Any(g => g.Distinct().Count() > 1))
+                    if (state.Facts.Any(f => f == null) || state.Facts.Where(f => f != null).GroupBy(f => f.Id).Any(g => g.Count() > 1))
                         return "World State contains a missing fact or conflicting fact IDs.";
-                    if (rule.Kind == ConditionKind.WorldFact && state.Read(rule.Subject) == null && !state.Facts.Any(f => f && f.Id == rule.Subject))
+                    if (rule.Kind == ConditionKind.WorldFact && state.Read(rule.Subject) == null && !state.Facts.Any(f => f != null && f.Id == rule.Subject))
                         return quest.Title + ": world fact is not registered in World State: " + rule.Subject;
                 }
             }

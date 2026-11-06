@@ -56,9 +56,7 @@ Project → Create → DemonWeave → Gameplay Component 生成新的 Entity 模
 
 编辑器只显示 Target、Configuration 和 Results。作者手动连结果引脚，完成与取消由框架管理。旧 QuestAction / QuestCondition 任务保留兼容路径。
 
-三个节点的分支样本在 `Assets/AreaRescue/Scenes/DemonRescue.unity`，资产为 `Assets/TriggerBranch/TriggerBranches.asset`。角色进入黄色区域，满 5 秒报告 Stayed 并启动红 Cube；提前离开报告 LeftEarly 并启动绿 Cube。两个终点连接 Finish，使用任一终点完成规则。
-
-TD 示例源码是 `Assets/TriggerBranch/Runtime/StayInZoneEntity.cs` 与 `RotateCubeEntity.cs`。当前对象绑定、配置和运行验证依赖 Unity 场景，完整 AI 开发接管尚待验收。
+TD 示例源码位于 `Assets/AreaRescue/Runtime/Quest`，当前仅保留 CourtyardRescue 作为人工验收场景。
 
 ## 编排与业务实现
 
@@ -122,3 +120,6 @@ Assets/
 ## 反馈
 
 欢迎通过 [Issues](https://github.com/DemonViglu/DemonWeave/issues) 反馈制作过程中的问题。请附上 Unity 版本、复现步骤，以及“想完成什么、预期在哪里操作、实际发生了什么”。编辑器截图和第一条相关错误有助于定位问题。
+
+
+Quest 包位于 `Packages/com.demon.weave`，仅依赖 Newtonsoft JSON。营救样例的战斗、Timeline、Checkpoint 和对白呈现位于 `Assets/AreaRescue/Support`，不随 Quest 包安装。场景的 World State 组件在 Play 时提供当前事实值开关，可直接验证条件暂停、继续与中断；不改写初始资产。
