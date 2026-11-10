@@ -13,8 +13,8 @@ namespace DemonWeave.Unity
         public string Name { get; }
         public Type Type { get; }
         public IReadOnlyList<FieldInfo> Fields { get; }
-        public IReadOnlyList<string> Results => New().Results;
-        public string Comment => New().Comment;
+        public IReadOnlyList<string> Results { get; }
+        public string Comment { get; }
         internal QuestLogicDescriptor(Type type, QuestLogicAttribute identity)
         {
             Type = type; Id = identity.Id; Name = identity.Name;
@@ -24,6 +24,10 @@ namespace DemonWeave.Unity
             foreach (var field in Fields)
                 if (field.IsInitOnly || !Supported(field.FieldType)) throw new ArgumentException(type.Name + "." + field.Name + ": use a writable bool/int/float/double/string/enum or UnityEngine.Object field.");
             if (Fields.GroupBy(f => f.Name).Any(g => g.Count() > 1)) throw new ArgumentException(type.Name + ": hidden fields have duplicate names.");
+            // Type metadata is independent of node parameters and execution state.
+            var metadata = New();
+            Results = Array.AsReadOnly(metadata.Results.ToArray());
+            Comment = metadata.Comment;
         }
         private QuestNodeLogic New() => (QuestNodeLogic)Activator.CreateInstance(Type);
         public static Type ObjectType(Type type) => typeof(UnityEngine.Object).IsAssignableFrom(type) ? type : null;

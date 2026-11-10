@@ -121,3 +121,10 @@ Assets/
 
 
 Quest 包位于 `Packages/com.demon.weave`，仅依赖 Newtonsoft JSON。营救样例的战斗、Timeline、Checkpoint 和对白呈现位于 `Assets/AreaRescue/Support`，不随 Quest 包安装。场景的 World State 组件在 Play 时提供当前事实值开关，可直接验证条件暂停、继续与中断；不改写初始资产。
+
+
+### Minimal Quest sample
+
+Import **Minimal Quest** from Package Manager → Demon Weave Quest → Samples. Open `MinimalQuest.unity` and press Play: the cube rotates, then the quest completes. The sample demonstrates typed scene references, Advanced parameters and an optional AudioSource in one NodeLogic class. It is not registered until imported.
+
+This development project already includes the sample under `Assets/Samples/Demon Weave Quest/0.6.0/MinimalQuest`.

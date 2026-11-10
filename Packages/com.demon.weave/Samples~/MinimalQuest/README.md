@@ -1,6 +1,6 @@
 # Minimal Quest Template
 
-直接打开同目录 `MinimalQuest.unity` 并按 Play：蓝色方块旋转约 4 秒，任务完成。
+通过 Package Manager 的 Demon Weave Quest → Samples → Minimal Quest → Import 导入后，直接打开同目录 `MinimalQuest.unity` 并按 Play：蓝色方块旋转约 4 秒，任务完成。
 双击 `MinimalQuest.asset` 打开任务图：Start → Rotate the cube → Done → Finish。
 
 - Target：必填 Transform，可拖入另一个场景 GO 换绑；框架解析类型，代码直接使用 target。
@@ -18,4 +18,4 @@ OnStart 播放可选音源，OnTick 旋转并提交 Done，OnStop 停止本节�
 
 Quest JSON 保存参数和引用 ID；场景 Runner 保存 ID 到对象的映射。
 模板具有独立的 DemonWeave.MinimalQuest 程序集，核心不依赖模板。
-用于正式内容时，将场景和任务资产复制到项目 Assets，并让复制的 Runner 引用复制的任务资产，避免修改包模板。
+包中的 Samples~ 不自动编译或注册 Logic；导入后才出现 sample.rotate。当前 DemonWeave 工程已有一份导入副本，位于 Assets/Samples/Demon Weave Quest/0.6.0/MinimalQuest，可直接打开，无须再次导入。用于正式内容时复制场景和任务资产，并更新 Runner 的任务引用。

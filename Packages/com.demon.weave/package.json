@@ -6,5 +6,12 @@
   "unity": "6000.5",
   "dependencies": {
     "com.unity.nuget.newtonsoft-json": "3.2.2"
-  }
+  },
+  "samples": [
+    {
+      "displayName": "Minimal Quest",
+      "description": "Ready-to-play scene with one NodeLogic, typed bindings, Advanced parameters and optional audio.",
+      "path": "Samples~/MinimalQuest"
+    }
+  ]
 }
