@@ -118,7 +118,7 @@ namespace DemonWeave.Editor
             CommentField(noteRow, stage.Comment ?? entity?.Comment ?? "", value => Edit("Edit Comment", () => stage.Comment = value));
             IconAction(noteRow, "↺", "Use code comment", () => Edit("Reset Comment", () => stage.Comment = null));
             }
-            if (stage.Results.Count > 0)
+            if (stage.UsesEntityExecution())
             {
                 if (stage.Objectives.Count + stage.BeginExec.Count + stage.FinishExec.Count + stage.Routes.Count + stage.Switches.Count > 0)
                 {

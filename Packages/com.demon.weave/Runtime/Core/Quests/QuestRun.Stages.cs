@@ -28,7 +28,7 @@ namespace DemonWeave.Quests
                     stage.Result = "Next"; stage.State = QuestStatus.Completed;
                     StageNotice(owner, stage, QuestNoticeKind.State, "Control released"); changed = true;
                 }
-                if (stage.State != QuestStatus.Active || stage.Definition.Results.Count > 0) continue;
+                if (stage.State != QuestStatus.Active || stage.Definition.UsesEntityExecution()) continue;
                 UpdateStageFacts(owner, stage, stage.Definition.Objectives, stage.Counts);
                 var route = stage.Definition.Routes.FirstOrDefault(r => r.Id == stage.SelectedRouteId);
                 if (route != null) UpdateStageFacts(owner, stage, route.Objectives, stage.RouteCounts[route.Id], route.Id);

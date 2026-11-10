@@ -28,6 +28,9 @@ namespace DemonWeave.Quests
         public List<QuestExec> FinishExec = new List<QuestExec>();
         public List<QuestRoute> Routes = new List<QuestRoute>();
         public List<RouteSwitch> Switches = new List<RouteSwitch>();
+        public bool UsesEntityExecution() => Control == QuestControl.None &&
+            (Results?.Count > 0 || !string.IsNullOrEmpty(EntityRole) && Objectives?.Count == 0 &&
+             BeginExec?.Count == 0 && FinishExec?.Count == 0 && Routes?.Count == 0 && Switches?.Count == 0);
         public QuestStage Copy() => new QuestStage { Id = Id, TypeId = TypeId, EntityRole = EntityRole, Control = Control, Results = Results?.ToList(), Title = Title, Comment = Comment, Required = Required, FinishResult = FinishResult,
             After = After?.ToList(), OpenWhen = OpenWhen?.Copy(), RunWhen = RunWhen?.Copy(), InterruptWhen = InterruptWhen?.Copy(), Objectives = Objectives?.Select(x => x?.Copy()).ToList(), Completion = Completion,
             BeginExec = BeginExec?.Select(x => x?.Copy()).ToList(), FinishExec = FinishExec?.Select(x => x?.Copy()).ToList(),
@@ -71,7 +74,7 @@ namespace DemonWeave.Quests
         internal readonly List<RouteChoice> Choices = new List<RouteChoice>();
         public string Id => Definition.Id;
         public string Title => Definition.Title;
-        public bool UsesEntity => Definition.Control == QuestControl.None && Definition.Results.Count > 0;
+        public bool UsesEntity => Definition.UsesEntityExecution();
         public string EntityRole => Definition.EntityRole;
         public QuestStatus State { get; internal set; } = QuestStatus.Waiting;
         public bool IsPaused { get; internal set; }

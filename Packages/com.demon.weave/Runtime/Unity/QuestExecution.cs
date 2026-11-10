@@ -11,10 +11,12 @@ namespace DemonWeave.Unity
         public abstract override QuestExecution CreateExecution();
     }
 
+    public enum QuestStopReason { Completed, Cancelled, Faulted }
+
     public abstract class QuestExecution : IDisposable
     {
         private Action<string> completed;
-        private bool stopped, started;
+        private bool stopped, started, reported;
         private int thread;
         private bool paused;
         private double accumulated, runningSince;
@@ -26,10 +28,10 @@ namespace DemonWeave.Unity
             if (started || stopped) throw new InvalidOperationException("CreateExecution must return a new execution each time.");
             started = true; runningSince = Time.timeAsDouble; thread = System.Threading.Thread.CurrentThread.ManagedThreadId; completed = callback; OnStart();
         }
-        internal void Tick() { if (!stopped && !paused) OnTick(); }
+        internal void Tick() { if (!stopped && !paused && !reported) OnTick(); }
         internal void SetPaused(bool value)
         {
-            if (stopped || paused == value) return;
+            if (stopped || reported || paused == value) return;
             if (value) { accumulated = ActiveTime; paused = true; OnPause(); }
             else { paused = false; runningSince = Time.timeAsDouble; OnResume(); if (!stopped && pendingResult != null) Complete(pendingResult); }
         }
@@ -37,22 +39,23 @@ namespace DemonWeave.Unity
         protected virtual void OnResume() { }
         protected virtual void OnStart() { }
         protected virtual void OnTick() { }
-        protected virtual void OnStop() { }
+        protected virtual void OnStop(QuestStopReason reason) { }
         protected void Complete(string result)
         {
-            if (stopped) return;
+            if (stopped || reported) return;
             if (System.Threading.Thread.CurrentThread.ManagedThreadId != thread) throw new InvalidOperationException("Report results on the Unity main thread.");
             if (paused) { pendingResult ??= result; return; }
             result = pendingResult ?? result;
             var callback = completed;
-            Dispose();
+            reported = true;
             callback?.Invoke(result);
         }
-        public void Dispose()
+        public void Dispose() => Stop(QuestStopReason.Cancelled);
+        internal void Stop(QuestStopReason reason)
         {
             if (stopped) return;
             accumulated = ActiveTime; stopped = true; completed = null;
-            OnStop();
+            OnStop(reason);
         }
     }
 

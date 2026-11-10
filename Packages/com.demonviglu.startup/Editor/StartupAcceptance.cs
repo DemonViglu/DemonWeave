@@ -10,7 +10,6 @@ namespace DemonViglu.Startup.Editor
         {
             Debug.Log("STARTUP_CORE_PASS cases=" + CoreAcceptance.Run());
             Debug.Log("QUEUED_EVENTS_PASS cases=" + QueuedEventAcceptance.Run());
-            Debug.Log("STARTUP_PERIODIC_PASS cases=" + PeriodicAcceptance.Run());
             Debug.Log("STARTUP_BINDING_PASS cases=" + BindingAcceptance.Run());
         }
         public static void RunBatch()

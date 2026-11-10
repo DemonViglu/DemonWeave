@@ -13,7 +13,6 @@ namespace DemonWeave.AreaRescue
         private sealed class Execution : QuestExecution<CompanionResult>
         {
             private readonly RescueEncounter encounter;
-            private bool handedOff;
             private readonly Guid attempt;
             public Execution(RescueEncounter encounter) { this.encounter = encounter; attempt = encounter.AttemptId; }
             protected override void OnStart()
@@ -25,10 +24,10 @@ namespace DemonWeave.AreaRescue
             {
                 if (!encounter || encounter.AttemptId != attempt) throw new InvalidOperationException("Encounter attempt ended.");
                 Status = encounter.IsCompanionRescued() ? "Waiting for rescue dialogue to finish" : "Waiting for player to rescue the companion";
-                if (encounter.IsPlayerDefeated()) { handedOff = true; Finish(CompanionResult.Defeated); }
-                else if (encounter.IsDialogueFinished()) { handedOff = true; Finish(CompanionResult.Rescued); }
+                if (encounter.IsPlayerDefeated()) { Finish(CompanionResult.Defeated); }
+                else if (encounter.IsDialogueFinished()) { Finish(CompanionResult.Rescued); }
             }
-            protected override void OnStop() { if (!handedOff && encounter && encounter.AttemptId == attempt) encounter.Clear(); }
+            protected override void OnStop(QuestStopReason reason) { if (reason != QuestStopReason.Completed && encounter && encounter.AttemptId == attempt) encounter.Clear(); }
         }
     }
 }

@@ -17,9 +17,6 @@ namespace DemonViglu.Dialogue.Unity
         private readonly List<Button> choices = new();
         private CanvasGroup group;
         private DialoguePlayer owner;
-        private bool cursorSaved;
-        private bool previousCursorVisible;
-        private CursorLockMode previousCursorLock;
 
         private void Awake() { group = GetComponent<CanvasGroup>(); SetVisible(false); }
         public bool TryOpen(DialoguePlayer player)
@@ -31,8 +28,6 @@ namespace DemonViglu.Dialogue.Unity
             { Debug.LogError("[Dialogue] View未启用或缺少UI引用。", this); return false; }
             group ??= GetComponent<CanvasGroup>();
             owner = player;
-            previousCursorVisible = Cursor.visible; previousCursorLock = Cursor.lockState; cursorSaved = true;
-            Cursor.lockState = CursorLockMode.None; Cursor.visible = true;
             SetVisible(true);
             return true;
         }
@@ -72,7 +67,6 @@ namespace DemonViglu.Dialogue.Unity
             ContinueButton.onClick.RemoveAllListeners(); CancelButton.onClick.RemoveAllListeners();
             foreach (var button in choices) button.onClick.RemoveAllListeners();
             SetVisible(false);
-            if (cursorSaved) { Cursor.lockState = previousCursorLock; Cursor.visible = previousCursorVisible; cursorSaved = false; }
         }
         private void SetVisible(bool visible)
         {

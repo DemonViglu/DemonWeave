@@ -26,7 +26,7 @@ namespace DemonWeave.Editor
                     if (!string.IsNullOrEmpty(stateError)) return new[] { new QuestDiagnostic("World State", "state.configuration", stateError) };
                 }
                 if (host != null)
-                    foreach (var quest in definitions) foreach (var node in quest.Stages.Where(n => n.Control == QuestControl.None && n.Results.Count > 0)) {
+                    foreach (var quest in definitions) foreach (var node in quest.Stages.Where(n => n.UsesEntityExecution())) {
                         var entity = host.BindingEntries.FirstOrDefault(b => b.Role == node.EntityRole)?.Entity;
                         var error = !entity ? "Target Entity is missing." : !entity.Results.SequenceEqual(node.Results) ? "Entity result contract differs. Rebind the target to refresh it." : entity.CheckConfiguration();
                         if (!string.IsNullOrEmpty(error)) return new[] { new QuestDiagnostic(quest.Title + "/" + node.Title, "entity.configuration", error) };

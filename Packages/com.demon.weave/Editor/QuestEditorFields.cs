@@ -33,7 +33,8 @@ namespace DemonWeave.Editor
                 if (rule != null && rule.Kind != ConditionKind.WorldFact && !(rule.Kind == ConditionKind.All && rule.Children.Count == 0))
                     section.Add(new HelpBox("A custom condition is configured. Replacing this field replaces that condition.", HelpBoxMessageType.Info));
             }
-            Fact("Run while", running, setRunning, false);
+            section.tooltip = "Controls task progress. Gameplay continues unless its Entity explicitly pauses it.";
+            Fact("Progress while", running, setRunning, false);
             var sourceKind = interrupt == null ? "None" : interrupt.Kind == ConditionKind.ExternalQuestCompleted ? "Quest completion" : "World Fact";
             Choice(section, "Interrupt source", new List<string> { "None", "World Fact", "Quest completion" }, sourceKind,
                 value => Edit("Change interruption source", () => setInterrupt(value == "None" ? null : new QuestCondition { Kind = value == "World Fact" ? ConditionKind.WorldFact : ConditionKind.ExternalQuestCompleted })));

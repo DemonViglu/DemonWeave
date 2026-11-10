@@ -22,7 +22,11 @@ public sealed class #SCRIPTNAME# : QuestEntity<#SCRIPTNAME#Result>
         }
         // Use ActiveTime for timers; it excludes paused time.
         // Override OnPause / OnResume to suspend external gameplay when necessary.
-        // Override OnTick for polling, and OnStop to unsubscribe/cancel gameplay.
-        // OnStop runs once on completion, cancellation, or runner shutdown.
+        // Override OnTick for polling.
+        // OnStop runs once after accepted completion, cancellation, or a runner fault.
+        protected override void OnStop(QuestStopReason reason)
+        {
+            // Unsubscribe here. Cancel unfinished gameplay only when reason != Completed.
+        }
     }
 }

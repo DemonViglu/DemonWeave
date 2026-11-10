@@ -2,10 +2,14 @@
   "name": "com.demonviglu.startup",
   "version": "0.2.0",
   "displayName": "DemonViglu Startup",
-  "description": "Project-owned application root, services, events and independent loop/scheduling utilities.",
+  "description": "Explicit project startup, owned services and typed events.",
   "unity": "6000.0",
-  "dependencies": {
-    "com.unity.modules.imgui": "1.0.0",
-    "com.unity.modules.physics": "1.0.0"
-  }
+  "dependencies": {},
+  "samples": [
+    {
+      "displayName": "Minimal Startup",
+      "description": "An application entry and ordinary Unity Update.",
+      "path": "Samples~"
+    }
+  ]
 }

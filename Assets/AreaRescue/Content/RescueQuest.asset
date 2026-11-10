@@ -81,18 +81,17 @@ MonoBehaviour:
     \"Routes\": [],\r\n        \"Switches\": []\r\n      },\r\n      {\r\n       
     \"Id\": \"defeat\",\r\n        \"TypeId\": \"core.stage\",\r\n        \"EntityRole\":
     \"entity:0a02d491acec41b380c7048a714b74a6\",\r\n        \"Control\": \"None\",\r\n       
-    \"Results\": [\r\n          \"Requested\"\r\n        ],\r\n        \"Title\":
-    \"Return after defeat\",\r\n        \"Comment\": null,\r\n        \"Required\":
-    false,\r\n        \"FinishResult\": \"\",\r\n        \"After\": [],\r\n       
-    \"OpenWhen\": {\r\n          \"Kind\": \"Any\",\r\n          \"Subject\": \"\",\r\n         
-    \"Key\": \"\",\r\n          \"Expected\": true,\r\n          \"State\": \"Completed\",\r\n         
-    \"Children\": [\r\n            {\r\n              \"Kind\": \"StageResult\",\r\n             
-    \"Subject\": \"prepare\",\r\n              \"Key\": \"Defeated\",\r\n             
-    \"Expected\": true,\r\n              \"State\": \"Completed\",\r\n             
-    \"Children\": []\r\n            },\r\n            {\r\n              \"Kind\":
-    \"StageResult\",\r\n              \"Subject\": \"clear\",\r\n              \"Key\":
-    \"Defeated\",\r\n              \"Expected\": true,\r\n              \"State\":
-    \"Completed\",\r\n              \"Children\": []\r\n            },\r\n           
+    \"Results\": [],\r\n        \"Title\": \"Return after defeat\",\r\n        \"Comment\":
+    null,\r\n        \"Required\": false,\r\n        \"FinishResult\": \"\",\r\n       
+    \"After\": [],\r\n        \"OpenWhen\": {\r\n          \"Kind\": \"Any\",\r\n         
+    \"Subject\": \"\",\r\n          \"Key\": \"\",\r\n          \"Expected\": true,\r\n         
+    \"State\": \"Completed\",\r\n          \"Children\": [\r\n            {\r\n             
+    \"Kind\": \"StageResult\",\r\n              \"Subject\": \"prepare\",\r\n             
+    \"Key\": \"Defeated\",\r\n              \"Expected\": true,\r\n             
+    \"State\": \"Completed\",\r\n              \"Children\": []\r\n            },\r\n           
+    {\r\n              \"Kind\": \"StageResult\",\r\n              \"Subject\": \"clear\",\r\n             
+    \"Key\": \"Defeated\",\r\n              \"Expected\": true,\r\n             
+    \"State\": \"Completed\",\r\n              \"Children\": []\r\n            },\r\n           
     {\r\n              \"Kind\": \"StageResult\",\r\n              \"Subject\": \"rescue\",\r\n             
     \"Key\": \"Defeated\",\r\n              \"Expected\": true,\r\n             
     \"State\": \"Completed\",\r\n              \"Children\": []\r\n            }\r\n         
@@ -104,10 +103,9 @@ MonoBehaviour:
     \"Routes\": [],\r\n        \"Switches\": []\r\n      }\r\n    ],\r\n    \"CancelChildrenOnEnd\":
     false\r\n  }\r\n]"
   editorLayoutJson: "{\r\n  \"courtyard-rescue\": {\r\n    \"enter\": [\r\n     
-    0.0,\r\n      120.0\r\n    ],\r\n    \"prepare\": [\r\n      330.0,\r\n     
+    0.0,\r\n      119.199982\r\n    ],\r\n    \"prepare\": [\r\n      330.0,\r\n     
     120.0\r\n    ],\r\n    \"clear\": [\r\n      660.0,\r\n      120.0\r\n    ],\r\n   
-    \"rescue\": [\r\n      992.799866,\r\n      120.800018\r\n    ],\r\n    \"defeat\":
-    [\r\n      660.0,\r\n      460.0\r\n    ],\r\n    \"node-3de930a7678d4729859610219a2fca64\":
-    [\r\n      1067.20007,\r\n      380.000061\r\n    ],\r\n    \"$guide:Start\":
-    [\r\n      -300.0,\r\n      120.0\r\n    ],\r\n    \"$guide:Finish\": [\r\n     
-    1320.0,\r\n      120.0\r\n    ]\r\n  }\r\n}"
+    \"rescue\": [\r\n      976.8,\r\n      40.0000153\r\n    ],\r\n    \"defeat\":
+    [\r\n      1123.658,\r\n      315.454041\r\n    ],\r\n    \"$guide:Start\": [\r\n     
+    -300.0,\r\n      120.0\r\n    ],\r\n    \"$guide:Finish\": [\r\n      1465.59985,\r\n     
+    103.199982\r\n    ]\r\n  }\r\n}"

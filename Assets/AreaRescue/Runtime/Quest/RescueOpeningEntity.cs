@@ -18,7 +18,6 @@ namespace DemonWeave.AreaRescue
             private readonly RescueEncounter encounter;
             private readonly GameObject door;
             private readonly float timeout;
-            private bool handedOff;
             private Guid attempt;
             public Execution(RescueEncounter encounter, GameObject door, float timeout)
             { this.encounter = encounter; this.door = door; this.timeout = timeout; }
@@ -32,13 +31,13 @@ namespace DemonWeave.AreaRescue
             {
                 if (!encounter || encounter.AttemptId != attempt) throw new InvalidOperationException("Encounter attempt ended.");
                 Status = encounter.Feedback;
-                if (encounter.IsPlayerDefeated()) { handedOff = true; Finish(OpeningResult.Defeated); }
+                if (encounter.IsPlayerDefeated()) { Finish(OpeningResult.Defeated); }
                 else if (encounter.Opening.State == TimelineOperationState.Failed) throw new InvalidOperationException(encounter.Opening.Error);
-                else if (encounter.IsPrepared()) { handedOff = true; Finish(OpeningResult.Ready); }
+                else if (encounter.IsPrepared()) { Finish(OpeningResult.Ready); }
             }
-            protected override void OnStop()
+            protected override void OnStop(QuestStopReason reason)
             {
-                if (!handedOff && encounter && attempt != Guid.Empty && encounter.AttemptId == attempt) encounter.Clear();
+                if (reason != QuestStopReason.Completed && encounter && attempt != Guid.Empty && encounter.AttemptId == attempt) encounter.Clear();
             }
         }
     }

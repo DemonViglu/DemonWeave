@@ -131,12 +131,19 @@ namespace DemonWeave.Quests
                         var source = definition.Stages.FirstOrDefault(s => s?.Id == input.Subject);
                         if (source == stage || source?.Results?.Contains(input.Key) != true) Error(p + ".openWhen", "result.missing", "Result source or output is missing: " + input.Subject + "/" + input.Key);
                     }
+                    if (stage.After != null) foreach (var dependency in stage.After) {
+                        var source = definition.Stages.FirstOrDefault(n => n?.Id == dependency);
+                        if (source?.UsesEntityExecution() == true && source.Results?.Count == 0)
+                            Error(p + ".after", "result.missing", "This dependency has no completion output: " + dependency);
+                    }
                     if (!Enum.IsDefined(typeof(QuestControl), stage.Control)) Error(p, "control.invalid", "Unknown control node.");
                     if (stage.Control != QuestControl.None && (stage.Results?.Count != 1 || stage.Results[0] != "Next" || !string.IsNullOrEmpty(stage.EntityRole)))
                         Error(p, "control.contract", "Control nodes use one Next result and no Entity target.");
                     if (stage.Control == QuestControl.All && Results(stage.OpenWhen).GroupBy(r => r.Subject).Any(g => g.Select(r => r.Key).Distinct().Count() > 1))
                         Error(p, "control.exclusive", "AND cannot wait for mutually exclusive results from the same node.");
                     if (!string.IsNullOrEmpty(stage.FinishResult) && stage.Results?.Contains(stage.FinishResult) != true) Error(p, "result.terminal", "Finish must use a declared result.");
+                    if (stage.UsesEntityExecution() && stage.Results?.Count == 0 && stage.Required)
+                        Error(p, "result.terminal", "An Entity with no outputs cannot connect to Finish.");
                     if (stage.Results?.Count > 1 && stage.Required && string.IsNullOrEmpty(stage.FinishResult)) Error(p, "result.terminal", "Choose which result reaches Finish.");
                     if (stage.Results?.Count > 0 && (stage.Objectives.Count > 0 || stage.BeginExec.Count > 0 || stage.FinishExec.Count > 0 || stage.Routes.Count > 0))
                         Error(p, "entity.mixed", "Entity nodes own execution and completion; remove legacy actions/objectives/routes explicitly.");
@@ -145,7 +152,7 @@ namespace DemonWeave.Quests
                     Condition(stage.OpenWhen, p + ".openWhen", 0, new HashSet<QuestCondition>(), ids);
                     Contents(stage.Objectives, p + ".objectives", new HashSet<string>(), ids);
                     if (stage.Results == null || stage.Results.Any(string.IsNullOrWhiteSpace) || stage.Results.Distinct().Count() != stage.Results.Count) Error(p + ".results", "result.invalid", "Results must be unique nonempty names.");
-                    if ((stage.Results == null || stage.Results.Count == 0) && (stage.Objectives == null || stage.Objectives.Count == 0)) Error(p + ".objectives", "stage.empty", "A stage needs actual objectives, not only behaviour calls.");
+                    if (!stage.UsesEntityExecution() && (stage.Results == null || stage.Results.Count == 0) && (stage.Objectives == null || stage.Objectives.Count == 0)) Error(p + ".objectives", "stage.empty", "A stage needs actual objectives, not only behaviour calls.");
                     if (!Enum.IsDefined(typeof(RuleCombination), stage.Completion)) Error(p + ".completion", "combination.invalid", "Use All or Any.");
                     var execIds = new HashSet<string>(); ExecList(stage.BeginExec, p + ".beginExec", execIds); ExecList(stage.FinishExec, p + ".finishExec", execIds);
                     if (stage.Routes == null || stage.Switches == null) { Error(p, "required", "Routes and Switches cannot be null."); continue; }

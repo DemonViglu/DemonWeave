@@ -1,6 +1,6 @@
 # DemonViglu UI 0.1
 
-从 Firer 已有 UI 契约抽取的可选 UGUI 包，命名空间 `DemonViglu.UI`。运行时代码依赖 UGUI 与 Input System，不依赖 FirePlay、Player、活动、网络或旧全局服务容器。附带 Editor 验收入口依赖 Startup 的测试工具。
+从 Firer 已有 UI 契约抽取的可选 UGUI 包，命名空间 `DemonViglu.UI`。运行时代码依赖 UGUI 与 Input System，不依赖 FirePlay、Player、活动、网络或旧全局服务容器。不依赖 Startup。
 
 ## 职责与配置
 
@@ -15,12 +15,8 @@
 
 Catalog/Prefab 必须显式配置，View 的 CanvasGroup 要绑定；UI ID 属于消费项目，不把 Firer 的 HUD/活动 ID 收进通用包。Cancel 输入由绑定 InputSystemUIInputModule 的 cancel action 请求 Back。
 
-## 验收与迁移状态
+## 项目接入边界
 
-菜单 Tools → Startup → Run UI Contract Acceptance。批处理入口 `DemonViglu.UI.Editor.UiContractVerifier.RunBatch`，不要传 -quit；验证独立 UI 合同后接续 Startup 核心和两次 Play 样例。
+项目自己创建并绑定 Root、Catalog、View Prefab，调用 Initialize；可以从 GameManager 或普通 MonoBehaviour 接入，无需 Startup。业务 UI ID、光标、玩家输入及场景生命周期由项目管理。
 
-验证覆盖生命周期钩子、栈顶/非栈顶关闭、Back、HideOther 恢复、Modal 遮罩、HUD 焦点、输入阻挡请求、Root 停用/重启与 Hide。UI 合同测试是编辑器中直接调用，不代表真实鼠标/触屏或 Firer 活动/网络验收；后续 Play 是 Startup 时序样例。
-
-正式 Firer 已切换到本包：七个业务 View 继承 UiView，调用者使用 IUiService，Catalog/Root Prefab/SnowValley 已更新脚本引用且保留资产 GUID。旧 Root/View/Catalog/接口与旧合同测试已在绑定和正式场景 UI 验证后删除；FirePlayUiIds 单独保留在项目层。
-
-FirePlayUiBootstrap 承担项目光标适配，读取 BlocksGameplayInput 并跟随本地 Player 释放/恢复光标。服务使用正式 AppHost 的 ServiceBinding<IUiService>，消费者读取同一提供者。窗口与光标验证不等于触屏、活动结算或多人 UI 全部通过。
+CourtyardRescue 的 DialoguePanel、RescueHud、检查点与 UI 资产位于 Assets/AreaRescue，不随本包安装。包内没有独立示例或验收菜单；本工程通过救援样本验证栈和对白使用路径。

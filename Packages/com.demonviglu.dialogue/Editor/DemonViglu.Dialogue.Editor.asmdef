@@ -1,5 +1,11 @@
 {
   "name": "DemonViglu.Dialogue.Editor",
-  "references": ["DemonViglu.Dialogue", "DemonViglu.Dialogue.Unity", "Unity.ugui", "Unity.InputSystem"],
-  "includePlatforms": ["Editor"]
+  "references": [
+    "DemonViglu.Dialogue",
+    "DemonViglu.Dialogue.Unity",
+    "Unity.ugui"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ]
 }

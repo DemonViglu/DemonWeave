@@ -51,7 +51,7 @@ namespace DemonWeave.Unity
                 var definitions = book.RuntimeDefinitions();
                 if (definitions.Count == 0) { Record("Collection contains drafts only."); return; }
                 foreach (var definition in definitions)
-                    foreach (var node in definition.Stages.Where(n => n.Control == QuestControl.None && n.Results.Count > 0)) {
+                    foreach (var node in definition.Stages.Where(n => n.UsesEntityExecution())) {
                         var entity = bindings.FirstOrDefault(b => b.Role == node.EntityRole)?.Entity;
                         if (!entity || !entity.Results.SequenceEqual(node.Results)) throw new ArgumentException(node.Title + ": Entity result contract changed or target is missing.");
                         var error = entity.CheckConfiguration();
@@ -93,8 +93,11 @@ namespace DemonWeave.Unity
                             executions.Add(key, execution);
                             execution.Start(result => { if (ActiveRun == run && !run.IsClosed) results.Enqueue((run.Id, key.Item1, key.Item2, result)); });
                         }
+                        if (ActiveRun != run || run.IsClosed) return;
                         execution.SetPaused(node.IsPaused);
+                        if (ActiveRun != run || run.IsClosed) return;
                         if (ticked.Add(execution)) execution.Tick();
+                        if (ActiveRun != run || run.IsClosed) return;
                     }
                 if (results.Count == 0) break;
                 bool applied = false;
@@ -105,7 +108,13 @@ namespace DemonWeave.Unity
                         results.Enqueue(result); continue;
                     }
                     if (--transitions == 0) throw new InvalidOperationException("Entity transition budget exceeded.");
-                    applied |= run.CompleteEntity(result.run, result.quest, result.node, result.result);
+                    var accepted = run.CompleteEntity(result.run, result.quest, result.node, result.result);
+                    if (accepted && executions.TryGetValue((result.quest, result.node), out var finished)) {
+                        executions.Remove((result.quest, result.node));
+                        Release(finished, QuestStopReason.Completed);
+                    }
+                    if (ActiveRun != run || run.IsClosed) return;
+                    applied |= accepted;
                 }
                 if (!applied) break;
             } while (ActiveRun == run && !run.IsClosed);
@@ -123,8 +132,8 @@ namespace DemonWeave.Unity
                 // Only the next fact evaluation can complete a Quest, never the action return value itself.
             }
         }
-        private void Release(QuestExecution execution)
-        { try { execution.Dispose(); } catch (Exception error) { Record("Cleanup: " + error.Message); Debug.LogException(error, this); } }
+        private void Release(QuestExecution execution, QuestStopReason reason = QuestStopReason.Cancelled)
+        { try { execution.Stop(reason); } catch (Exception error) { Record("Cleanup: " + error.Message); Debug.LogException(error, this); } }
         private void PublishCompletions(QuestRun run)
         {
             if (run == null || !WorldState || string.IsNullOrEmpty(activeCollectionId)) return;
@@ -161,14 +170,15 @@ namespace DemonWeave.Unity
             return "";
         }
         private void Record(string message) { if (activity.Count >= 100) activity.RemoveAt(0); activity.Add(message); }
-        private void Fail(Exception e) { Record(e.Message); StopRun(); Debug.LogError(e.Message, this); }
-        public void StopRun()
+        private void Fail(Exception e) { Record(e.Message); StopRun(QuestStopReason.Faulted); Debug.LogError(e.Message, this); }
+        public void StopRun() => StopRun(QuestStopReason.Cancelled);
+        private void StopRun(QuestStopReason reason)
         {
             var run = ActiveRun; PublishCompletions(run); ActiveRun = null; run?.Dispose(); results.Clear();
             while (run != null && run.TryRead(out var stoppedNotice))
                 Record(stoppedNotice.QuestId + "/" + stoppedNotice.StageId + " " + stoppedNotice.Kind + ": " + stoppedNotice.Detail);
             var pending = executions.Values.ToArray(); executions.Clear();
-            foreach (var execution in pending) Release(execution);
+            foreach (var execution in pending) Release(execution, reason);
         }
         private void OnDisable() => StopRun();
     }

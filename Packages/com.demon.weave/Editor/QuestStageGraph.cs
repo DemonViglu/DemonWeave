@@ -67,7 +67,7 @@ namespace DemonWeave.Editor
                 input.userData = output.userData = stage.Id;
                 input.portColor = output.portColor = new Color(.35f, .73f, .72f);
                 node.inputContainer.Add(input);
-                if (stage.Results.Count == 0) node.outputContainer.Add(output);
+                if (stage.Results.Count == 0 && !stage.UsesEntityExecution()) node.outputContainer.Add(output);
                 foreach (var result in stage.Results) {
                     var port = node.InstantiatePort(Orientation.Horizontal, Direction.Output, Port.Capacity.Multi, typeof(bool));
                     port.portName = UnityEditor.ObjectNames.NicifyVariableName(result); port.userData = ResultPort(stage.Id, result);

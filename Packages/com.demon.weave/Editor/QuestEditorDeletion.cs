@@ -29,7 +29,8 @@ namespace DemonWeave.Editor
                 return;
             }
             var source = quest.Stages.FirstOrDefault(s => s.Id == from); var target = quest.Stages.FirstOrDefault(s => s.Id == to);
-            if (from == "$start" && target != null) { Edit("Make Entry Node", () => { target.After.Clear(); if (target.Results.Count > 0) target.OpenWhen = new QuestCondition { Kind = ConditionKind.All }; else EnableEntry(target); }); return; }
+            if (from == "$start" && target != null) { Edit("Make Entry Node", () => { target.After.Clear(); if (target.UsesEntityExecution()) target.OpenWhen = new QuestCondition { Kind = ConditionKind.All }; else EnableEntry(target); }); return; }
+            if (source != null && source.UsesEntityExecution() && source.Results.Count == 0) return;
             if (to == "$finish" && source != null) { Edit("Require Node For Completion", () => source.Required = true); return; }
             if (source == null || target == null || target.After.Contains(from)) return;
             var visited = new HashSet<string>();

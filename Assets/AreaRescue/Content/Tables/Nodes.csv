@@ -3,4 +3,4 @@
 "courtyard-rescue","prepare","1","core.stage","entity:17aec0d8014042cfa8f129a45202bb4c","Breach the prison gate","false","All","[""Ready"",""Defeated""]","null","None",""
 "courtyard-rescue","clear","2","core.stage","entity:63f6790e7dc54ebf96031f00a70e3b42","Defeat the prison guards","false","All","[""Cleared"",""Defeated""]","null","None",""
 "courtyard-rescue","rescue","3","core.stage","entity:42abb92340b14159b61f023ce22c0c88","Free your companion","true","All","[""Rescued"",""Defeated""]","null","None","Rescued"
-"courtyard-rescue","defeat","4","core.stage","entity:0a02d491acec41b380c7048a714b74a6","Return after defeat","false","All","[""Requested""]","null","None",""
+"courtyard-rescue","defeat","4","core.stage","entity:0a02d491acec41b380c7048a714b74a6","Return after defeat","false","All","[]","null","None",""

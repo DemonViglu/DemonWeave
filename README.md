@@ -52,7 +52,7 @@ Project → Create → DemonWeave → Gameplay Component 生成新的 Entity 模
 - 使用结果枚举声明输出，例如 Done、Failed。
 - Entity 的序列化字段保存作者配置，CheckConfiguration 检查引用和参数。
 - CreateExecution 为每次激活返回独立执行对象。
-- 执行对象实现 OnStart / OnTick / OnStop，用 Finish(结果) 报告一次业务结果。
+- 执行对象实现 OnStart / OnTick / OnStop(reason)，用 Finish(结果) 报告一次业务结果。
 
 编辑器只显示 Target、Configuration 和 Results。作者手动连结果引脚，完成与取消由框架管理。旧 QuestAction / QuestCondition 任务保留兼容路径。
 
@@ -83,16 +83,14 @@ AI 提案目前面向任务内容修改。新增业务代码需要编译，场�
 
 ## 在其他项目中使用
 
-产品包位于 `Packages/com.demon.weave`，当前随仓库提供本地依赖。可将下列包复制到目标工程的 `Packages` 目录，或通过 Package Manager 的 **Add package from disk** 安装对应的 `package.json`。
+只安装 `Packages/com.demon.weave/package.json` 即可使用 Quest。它不依赖 Startup、UI、Dialogue 或 Timeline。官方依赖由包清单声明。
 
-- `com.demonviglu.startup`
-- `com.demonviglu.ui`
-- `com.demonviglu.dialogue`
-- `com.demon.weave`
+- Startup 是可选的项目启动入口。
+- UI 是可选的 uGUI 窗口栈，不依赖 Startup。
+- Dialogue 是可选的对话会话与基础表现，不依赖 Quest 或 UI 栈。
+- `Assets/AreaRescue` 和 `Assets/Gameplay/Startup` 是本工程业务，不是安装 Quest 的必需内容。
 
-Unity 官方依赖在各包的 `package.json` 中声明，包含 Timeline、Newtonsoft JSON、uGUI 和 Input System。当前适配版本以仓库中的包清单为准。干净项目的一次完整安装与制作流程仍待正式验收。
-
-救援业务位于 `Assets/AreaRescue`，使用工具制作自己的任务时由自己的业务组件提供条件与行为。
+通过 Package Manager 的 **Add package from disk** 安装需要的包。业务 Entity 由项目实现；保存格式、场景恢复、输入和光标策略也由项目决定。Quest 保留运行状态与条件接口，不包含项目存档协议。干净项目的完整人工制作流程仍待验收。
 
 ## 当前边界
 
