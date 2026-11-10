@@ -1,32 +1,18 @@
 using DemonWeave.Unity;
-using UnityEngine;
 
 public enum #SCRIPTNAME#Result { Done }
 
-public sealed class #SCRIPTNAME# : QuestEntity<#SCRIPTNAME#Result>
+[QuestLogic("#SCRIPTNAME#", "#SCRIPTNAME#")]
+public sealed class #SCRIPTNAME# : QuestNodeLogic<#SCRIPTNAME#Result>
 {
-    // Optional default node comment: public override string Comment => "Describe this ability";
-    // Use [ShowInQuest, SerializeField] for author-editable parameters.
-    // Use only [SerializeField] for references configured in the component Inspector.
-    // Return a field-specific error for missing required references.
-    public override string CheckConfiguration() => "";
-    public override QuestExecution CreateExecution() => new Execution();
-
-    private sealed class Execution : QuestExecution<#SCRIPTNAME#Result>
+    [ShowInQuest] public float seconds = 1;
+    public override string CheckConfiguration(QuestBindings objects) =>
+        seconds < 0 ? "Seconds must be nonnegative." : "";
+    protected override void OnTick()
     {
-        // Per-activation variables belong here. Each node gets a fresh Execution.
-        protected override void OnStart()
-        {
-            // Start gameplay here. For an immediate operation:
-            Finish(#SCRIPTNAME#Result.Done);
-        }
-        // Use ActiveTime for timers; it excludes paused time.
-        // Override OnPause / OnResume to suspend external gameplay when necessary.
-        // Override OnTick for polling.
-        // OnStop runs once after accepted completion, cancellation, or a runner fault.
-        protected override void OnStop(QuestStopReason reason)
-        {
-            // Unsubscribe here. Cancel unfinished gameplay only when reason != Completed.
-        }
+        if (ActiveTime >= seconds) Finish(#SCRIPTNAME#Result.Done);
     }
+    // Private fields hold this activation's state. No factory, constructor or nested Execution.
+    // Public component fields are resolved before OnStart. Use them directly.
+    // OnStop(reason): unsubscribe events and release resources owned by this activation.
 }

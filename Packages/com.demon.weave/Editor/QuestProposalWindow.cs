@@ -33,14 +33,14 @@ namespace DemonWeave.Editor
         public void CreateGUI()
         {
             rootVisualElement.Clear(); prepared = null;
-            if (!book || Host == null) { rootVisualElement.Add(new HelpBox("Open from a Quest Collection with a Scene Host selected.", HelpBoxMessageType.Info)); return; }
+            if (!book) { rootVisualElement.Add(new HelpBox("Open from a Quest Collection. A scene runner is only needed for object references.", HelpBoxMessageType.Info)); return; }
             var scroll = new ScrollView { style = { flexGrow = 1, paddingLeft = 16, paddingRight = 16, paddingTop = 12 } }; rootVisualElement.Add(scroll);
             scroll.Add(new Label("Propose / Review / Validate / Apply") { style = { fontSize = 20, marginBottom = 12 } });
             scroll.Add(new HelpBox("Review the diff before applying. Proposals do not execute code or edit running quests.", HelpBoxMessageType.Info));
             request = new TextField("Request") { multiline = true, value = "Change the defeat handler to wait for retry. Preserve the rescue completion requirements." };
             request.style.minHeight = 70; scroll.Add(request);
             var buttons = new VisualElement { style = { flexDirection = FlexDirection.Row } };
-            buttons.Add(new Button(() => { EditorGUIUtility.systemCopyBuffer = BuildPrompt(); status.text = "Copied definition, capabilities and proposal schema. No secrets copied."; }) { text = "Copy AI Context" });
+            buttons.Add(new Button(() => { EditorGUIUtility.systemCopyBuffer = BuildPrompt(); status.text = "Copied definition, logic contracts and proposal schema. No secrets copied."; }) { text = "Copy AI Context" });
             generate = new Button(Generate) { text = "Generate Proposal" }; buttons.Add(generate);
             buttons.Add(new Button(() => pending?.Cancel()) { text = "Cancel Request" }); scroll.Add(buttons);
             status = new Label("Environment: DEMONWEAVE_LLM_ENDPOINT / DEMONWEAVE_LLM_MODEL / DEMONWEAVE_LLM_API_KEY. Secrets are not stored in assets.") { style = { whiteSpace = WhiteSpace.Normal, marginTop = 8, marginBottom = 8 } }; scroll.Add(status);
@@ -60,24 +60,22 @@ namespace DemonWeave.Editor
         }
         private string BuildPrompt()
         {
-            var catalog = Host.CreateCapabilities();
-            return "You are editing a local game quest definition. Return ONLY one JSON object; do not output C# or markdown. " +
-                "Use schema 1: {Schema:1,BookId:string,BaseRevision:string,Summary:string,Operations:[{Op:'add'|'set'|'set-stage'|'remove',QuestId:string,StageId?:string,Field?:string,Value?:JSON}]}. " +
-                "add uses a complete new quest as Value with matching Id and no Field; remove uses only Op/QuestId. " +
-                "set replaces ONE field of an existing quest. Allowed fields: Title,ParentId,Accept,FinishCombination,FailCombination,Finish,Fail,BeginExec,FinishExec,FailExec,CancelChildrenOnEnd,Stages. " +
-                "For an existing stage prefer Op:'set-stage', QuestId, StageId, Field, Value. Allowed stage fields: TypeId,EntityRole,Title,Required,After,OpenWhen,Objectives,Completion,BeginExec,FinishExec,Routes,Switches. This edits one stage field without replacing all stages. Stages belong inside a quest; never split them into unrelated quests. Each stage's Objectives are its completion evidence, All by default; do not duplicate them in quest Finish. " +
-                "Routes are explicit exclusive choices; switching requires From/To/When. World consequences belong to registered capabilities and actual facts, not fabricated completion. " +
-                "Each node has one EntityRole. Leave node-local condition/objective Subject empty and omit action $target; they resolve to that Entity. Explicit object method parameters remain separate. Use only methods declared on the node Entity. Preserve unrelated content and stable IDs. Use only provided roles, facts/events and capabilities. " +
-                "A completed action/dialogue is not a completed quest. Quest state dependencies are not execution order. " +
-                "Use named enums exactly as current definitions. If no implementation exists, explain in Summary and return Operations:[]; never invent executable abilities.\n" +
+            return "Edit a Quest definition using registered logic implementations and their declared Results. Return one JSON object, no C# or markdown. " +
+                "Use schema {Schema:1,BookId:string,BaseRevision:string,Summary:string,Operations:[{Op:'add'|'set'|'set-stage'|'remove',QuestId:string,StageId?:string,Field?:string,Value?:JSON}]}. " +
+                "add requires a complete Quest with matching Id; remove uses only Op/QuestId. set changes one Quest field; set-stage changes one node field. " +
+                "Use fields present in CurrentQuests. Preserve unrelated data and IDs. Nodes execute their logic; no action lists, method names, objectives or routes. " +
+                "Use StageResult conditions for output connections, WorldFact for shared state, and QuestState/ExternalQuestCompleted for dependencies. " +
+                "Required and FinishResult identify outputs connected to Finish. Control nodes use Next, no LogicId. " +
+                "Parameters are per-node JSON values defined by the selected LogicId schema. Use only declared field names, enum names and listed object reference IDs. Never invent references or logic. If new implementation is needed, explain it in Summary and return Operations:[].\n" +
                 JsonConvert.SerializeObject(new {
                     BookId = book.Id, BaseRevision = QuestProposalReview.Revision(book), AuthorRequest = request.value,
                     CurrentQuests = JArray.Parse(book.ExportDefinitions()),
-                    Bindings = Host.BindingEntries.Select(b => new { b.Role, CanOwnNode = b.Entity != null, ObjectName = b.Target ? b.Target.name : "missing" }),
-                    Signals = Host.Signals,
-                    Capabilities = catalog.Entries.Select(c => new { c.Id, c.Label, TargetRoles = c.TargetRoles, Parameters = JObject.Parse(c.DefaultJson()) })
+                    Logic = QuestLogicCatalog.All.Select(d => new { d.Id, d.Name, d.Results, d.Comment, Defaults = d.Defaults(), Fields = d.Fields.Select(f => new { f.Name, Type = f.FieldType.Name, Required = QuestLogicDescriptor.IsRequired(f), ObjectType = QuestLogicDescriptor.ObjectType(f.FieldType)?.FullName, Enum = f.FieldType.IsEnum ? Enum.GetNames(f.FieldType) : null }) }),
+                    Owner = hostObject ? new { Name = hostObject.gameObject.name, Components = hostObject.GetComponents<Component>().Where(c => c).Select(c => c.GetType().FullName) } : null,
+                    Bindings = Host?.BindingEntries.Select(b => new { Id = b.Role, Name = b.Target ? b.Target.name : "Missing", Type = b.Target ? b.Target.GetType().FullName : "Missing" })
                 }, Formatting.Indented);
         }
+
         private static string Setting(string name) => Environment.GetEnvironmentVariable(name) ?? Environment.GetEnvironmentVariable(name, EnvironmentVariableTarget.User);
         private async void Generate()
         {

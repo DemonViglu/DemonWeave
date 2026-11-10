@@ -19,9 +19,6 @@ namespace DemonWeave.Editor
             var manifest = JObject.Parse(File.ReadAllText(Path.Combine(directory,"collection.json")));
             if ((string)manifest["CollectionId"] != book.Id) throw new InvalidOperationException("CollectionId does not match the selected asset.");
             var definitions = QuestTables.Import(directory);
-            var types = QuestNodeCatalog.Read();
-            foreach(var quest in definitions) foreach(var node in quest.Stages)
-                if(node.TypeId != "core.stage" && !types.ContainsKey(node.TypeId)) throw new InvalidOperationException("Nodes.csv: unknown TypeId '"+node.TypeId+"' on "+quest.Id+"/"+node.Id);
             var oldArray = JArray.Parse(book.ExportDefinitions());
             var temp = CreateInstance<QuestBookAsset>(); JArray newArray;
             try { temp.Quests=definitions; newArray=JArray.Parse(temp.ExportDefinitions()); } finally { DestroyImmediate(temp); }

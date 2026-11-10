@@ -1,6 +1,6 @@
 {
   "name": "com.demon.weave",
-  "version": "0.1.0",
+  "version": "0.6.0",
   "displayName": "Demon Weave Quest",
   "description": "Small local quest lifecycle and human authoring adapter.",
   "unity": "6000.5",

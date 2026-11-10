@@ -12,18 +12,6 @@ namespace DemonWeave.Editor
 {
     public sealed partial class QuestEditorWindow
     {
-        private bool technicalView;
-        private QuestAuthoringProfile authorProfile;
-        private void LoadAuthoringProfile()
-        {
-            authorProfile = null;
-            if (Host != null)
-                foreach (var type in TypeCache.GetTypesDerivedFrom<QuestAuthoringProfile>().Where(t => !t.IsAbstract))
-                {
-                    var candidate = (QuestAuthoringProfile)Activator.CreateInstance(type);
-                    if (candidate.Supports(Host)) { authorProfile = candidate; break; }
-                }
-        }
         private VisualElement TaskList()
         {
             var list = new ScrollView { style = { width = 230, minWidth = 190, paddingLeft = 12, paddingRight = 12, backgroundColor = new Color(.09f,.11f,.15f) } };
@@ -46,12 +34,6 @@ namespace DemonWeave.Editor
             if (condition == null) return "No activation condition";
             if (condition.Kind == ConditionKind.StageResult)
                 return (book.Quests.FirstOrDefault(q => q.Id == selectedId)?.Stages.FirstOrDefault(n => n.Id == condition.Subject)?.Title ?? condition.Subject) + " / " + ObjectNames.NicifyVariableName(condition.Key);
-            if (condition.Kind == ConditionKind.Fact)
-            {
-                var signal = Host?.Signals.FirstOrDefault(s => s.Role == condition.Subject && s.Key == condition.Key);
-                var name = signal?.Label ?? condition.Key;
-                return condition.Expected ? name : "Not: " + name;
-            }
             if (condition.Kind == ConditionKind.All || condition.Kind == ConditionKind.Any)
                 return condition.Children.Count == 0 ? "No additional conditions" : string.Join(condition.Kind == ConditionKind.All ? " AND " : " OR ", condition.Children.Select(AuthorCondition));
             return QuestAuthoringChecks.ConditionText(condition, id => book.Quests.FirstOrDefault(q => q.Id == id)?.Title ?? id);
@@ -98,157 +80,11 @@ namespace DemonWeave.Editor
                 CommentField(content, stage.Comment ?? "", value => Edit("Edit Comment", () => stage.Comment = value));
                 return;
             }
-            if (Host == null) content.Add(new HelpBox("No Scene Host is connected. Node definitions remain editable; open the gameplay scene or assign a Quest Runner above to choose registered actions, facts and scene objects.", HelpBoxMessageType.Info));
-            if (stage.TypeId != "core.stage") try
-            {
-                var types = QuestNodeCatalog.Read(); types.TryGetValue(stage.TypeId ?? "", out var type);
-                var row = ItemRow(content);
-                row.Add(new TextField("TypeId") { value = stage.TypeId, isReadOnly = true, tooltip = type ? type.DisplayName : "Built-in / custom node", style = { flexGrow = 1 } });
-                IconAction(row, "↗", "Open Node Type asset", () => AssetDatabase.OpenAsset(type)).SetEnabled(type);
-                var script = type ? MonoScript.FromScriptableObject(type) : stage.TypeId == "core.stage" ? AssetDatabase.LoadAssetAtPath<MonoScript>("Packages/com.demon.weave/Runtime/Core/Quests/QuestStages.cs") : null;
-                IconAction(row, "{}", "Open Node Type implementation", () => AssetDatabase.OpenAsset(script)).SetEnabled(script);
-            }
-            catch (Exception error) { content.Add(new HelpBox(error.Message, HelpBoxMessageType.Error)); }
-            RoleChoice(content, "Entity", stage.EntityRole, role => Edit("Change Node Entity", () => BindNodeEntity(stage, role)), true);
-            if(string.IsNullOrEmpty(stage.EntityRole)) content.Add(new HelpBox("Drop the scene object this step uses. Its component provides the available actions and conditions.",HelpBoxMessageType.Info));
-            var entity = Host?.BindingEntries.FirstOrDefault(b => b.Role == stage.EntityRole)?.Entity;
-            void AddComment()
-            {
+            BuildNodeLogic(content, stage);
+            BuildExecutionRules(content, stage.RunWhen, value => stage.RunWhen = value, stage.InterruptWhen, value => stage.InterruptWhen = value);
             var noteRow = ItemRow(content);
-            CommentField(noteRow, stage.Comment ?? entity?.Comment ?? "", value => Edit("Edit Comment", () => stage.Comment = value));
+            CommentField(noteRow, stage.Comment ?? QuestLogicCatalog.Find(stage.LogicId)?.Comment ?? "", value => Edit("Edit Comment", () => stage.Comment = value));
             IconAction(noteRow, "↺", "Use code comment", () => Edit("Reset Comment", () => stage.Comment = null));
-            }
-            if (stage.UsesEntityExecution())
-            {
-                if (stage.Objectives.Count + stage.BeginExec.Count + stage.FinishExec.Count + stage.Routes.Count + stage.Switches.Count > 0)
-                {
-                    content.Add(new HelpBox("This node still contains legacy actions or objectives. Review them in Advanced fields before converting.", HelpBoxMessageType.Error));
-                    content.Add(new Button(() => {
-                        if (!EditorUtility.DisplayDialog("Use Entity contract", "Remove this node's legacy actions, objectives, routes and switches? The Entity will own execution and completion. Undo is available.", "Convert", "Cancel")) return;
-                        Edit("Convert Node To Entity", () => { stage.Objectives.Clear(); stage.BeginExec.Clear(); stage.FinishExec.Clear(); stage.Routes.Clear(); stage.Switches.Clear(); });
-                    }) { text = "Use Entity contract…" });
-                }
-                if (entity)
-                {
-                    bool hasConfiguration = false;
-                    var data = new SerializedObject(entity);
-                    var property = data.GetIterator();
-                    if (property.NextVisible(true)) do {
-                        if (property.name == "m_Script" || property.name == "entityId" || !ShownInQuest(entity.GetType(), property.name)) continue;
-                        if (!hasConfiguration) { content.Add(Heading("Configuration")); hasConfiguration = true; }
-                        var field = new PropertyField(property.Copy()); field.Bind(data); content.Add(field);
-                    } while (property.NextVisible(false));
-                    var error = entity.CheckConfiguration();
-                    if (!string.IsNullOrEmpty(error)) content.Add(new HelpBox(error, HelpBoxMessageType.Error));
-
-                }
-                BuildExecutionRules(content, stage.RunWhen, value => stage.RunWhen = value, stage.InterruptWhen, value => stage.InterruptWhen = value);
-                AddComment();
-                return;
-            }
-            if (stage.Objectives.Count == 0 && stage.BeginExec.Count == 0 && stage.FinishExec.Count == 0)
-            {
-                content.Add(new HelpBox("Choose an object with a QuestEntity<Result> component. The component declares its parameters and result ports.", HelpBoxMessageType.Info));
-                AddComment(); return;
-            }
-            if (QuestStageGraph.EntryBlocked(stage.OpenWhen)) content.Add(new HelpBox("Connect Start or a previous node to activate this node.", HelpBoxMessageType.Info));
-            var hasCondition = stage.OpenWhen.Kind != ConditionKind.All || stage.OpenWhen.Children.Count > 0;
-            var additional = new Foldout { text = "Start Conditions", tooltip = "Extra checks before this step can begin. Leave empty if the incoming connection is enough.", value = hasCondition }; content.Add(additional);
-            BuildCondition(additional, stage.OpenWhen, value => stage.OpenWhen = value, 0);
-            BuildExecs(content, stage.BeginExec, "On Start");
-            {
-                var heading = ItemRow(content); heading.style.marginTop = 8;
-                heading.Add(new Label("Wait For") { tooltip = "What must be achieved for this node to complete.", style = { flexGrow = 1, unityFontStyleAndWeight = FontStyle.Bold } });
-                IconAction(heading, "+", "Add Objective", () => Edit("Add Objective", () => stage.Objectives.Add(
-                    new QuestContent { Id = Guid.NewGuid().ToString("N"), Label = "New Objective", Kind = ContentKind.Fact })));
-                if (stage.Objectives.Count == 0)
-                    content.Add(new HelpBox("Choose an objective with +. This node can be saved now, but needs an objective before running.", HelpBoxMessageType.Info));
-                if (stage.Objectives.Count > 1)
-                    Choice(content, "Complete", new List<string> { "All objectives", "Any objective" },
-                        stage.Completion == RuleCombination.All ? "All objectives" : "Any objective",
-                        value => Edit("Change Objective Combination", () => stage.Completion = value == "All objectives" ? RuleCombination.All : RuleCombination.Any));
-                foreach (var objective in stage.Objectives.ToArray())
-                {
-                    var row = ItemRow(content); var valueArea = new VisualElement { style = { flexGrow = 1 } }; row.Add(valueArea);
-                    if (objective.Kind == ContentKind.Fact || objective.Kind == ContentKind.EventCount)
-                    {
-                        BuildObjectCondition(valueArea, objective.Subject, objective.Key, objective.Kind == ContentKind.EventCount,
-                            (role, key) => Edit("Change Objective Condition", () => { objective.Subject = role; objective.Key = key; objective.Label = ConditionLabel(role, key); }));
-                    }
-                    else valueArea.Add(new Label(objective.Label));
-                    row.tooltip = objective.Subject + "/" + objective.Key;
-                    if (objective.Kind == ContentKind.EventCount)
-                    {
-                        var count = new IntegerField { value = objective.Required, isDelayed = true, name = "objective-count-" + objective.Id, tooltip = "Required event count" };
-                        count.style.width = 60;
-                        count.RegisterValueChangedCallback(e => Edit("Change Objective Count", () => objective.Required = Math.Max(1, e.newValue)));
-                        row.Add(count);
-                    }
-                    else if (objective.Kind == ContentKind.Fact)
-                    {
-                        var expected = new Toggle { value = objective.Expected, tooltip = "Required fact value (checked = true)", name = "objective-expected-" + objective.Id };
-                        expected.RegisterValueChangedCallback(e => Edit("Change Objective Fact", () => objective.Expected = e.newValue)); row.Add(expected);
-                    }
-                    IconAction(row, "×", "Remove Objective", () => {
-                        if (stage.Objectives.Count == 1) { notice = "A node needs at least one objective. Change the objective or delete the node."; UpdateStatus(); return; }
-                        Edit("Remove Objective", () => stage.Objectives.Remove(objective));
-                    });
-                }
-            }
-            if (stage.Routes.Count > 0)
-            {
-                var routes = new Foldout { text = "Routes", value = false }; content.Add(routes);
-                var saved = detailSection; detailSection = "Routes"; BuildStages(routes, quest); detailSection = saved;
-            }
-            BuildExecs(content, stage.FinishExec, "On Finish");
-            AddComment();
-        }
-        private IEnumerable<string> OwnerUses(QuestStage stage)
-        {
-            var catalog = Host?.CreateCapabilities();
-            string ActionName(QuestExec action) => catalog?.Find(action.CapabilityId, stage.EntityRole)?.Label ?? action.CapabilityId;
-            IEnumerable<string> Conditions(QuestCondition rule)
-            {
-                if (rule == null) yield break;
-                if (rule.Kind == ConditionKind.Fact) yield return ConditionLabel(stage.EntityRole, rule.Key);
-                if (rule.Children == null) yield break;
-                foreach (var child in rule.Children)
-                    foreach (var key in Conditions(child)) yield return key;
-            }
-            foreach (var key in Conditions(stage.OpenWhen)) yield return "Additional Conditions / " + key;
-            foreach (var action in stage.BeginExec) yield return "On Enter / " + ActionName(action);
-            foreach (var goal in stage.Objectives.Where(g => g.Kind == ContentKind.Fact || g.Kind == ContentKind.EventCount)) yield return "Objective / " + goal.Label;
-            foreach (var action in stage.FinishExec) yield return "On Complete / " + ActionName(action);
-            foreach (var route in stage.Routes)
-            {
-                foreach (var key in Conditions(route.AvailableWhen)) yield return route.Title + " / " + key;
-                foreach (var goal in route.Objectives.Where(g => g.Kind == ContentKind.Fact || g.Kind == ContentKind.EventCount)) yield return route.Title + " / " + goal.Label;
-                foreach (var action in route.SelectedExec) yield return route.Title + " / " + ActionName(action);
-            }
-            foreach (var change in stage.Switches)
-                foreach (var key in Conditions(change.When)) yield return change.From + " → " + change.To + " / " + key;
-        }
-
-        private void BindNodeEntity(QuestStage node, string role)
-        {
-            void Condition(QuestCondition c) { if(c==null)return; if(c.Kind==ConditionKind.Fact)c.Subject=""; if(c.Children!=null)foreach(var child in c.Children)Condition(child); }
-            void Goals(List<QuestContent> goals) { foreach(var goal in goals)if(goal.Kind==ContentKind.Fact||goal.Kind==ContentKind.EventCount)goal.Subject=""; }
-            void Actions(List<QuestExec> actions) { foreach(var action in actions){var args=Newtonsoft.Json.Linq.JObject.Parse(action.ArgumentsJson);args.Remove(CapabilityCatalog.TargetKey);action.ArgumentsJson=args.ToString(Newtonsoft.Json.Formatting.None);} }
-            Condition(node.OpenWhen); Goals(node.Objectives); Actions(node.BeginExec); Actions(node.FinishExec);
-            foreach(var route in node.Routes){Condition(route.AvailableWhen);Goals(route.Objectives);Actions(route.SelectedExec);}
-            foreach(var change in node.Switches)Condition(change.When);
-            node.EntityRole=role;
-            var entity = Host?.BindingEntries.FirstOrDefault(b => b.Role == role)?.Entity;
-            node.Results = entity ? entity.Results.ToList() : node.Results;
-        }
-        private static bool ShownInQuest(Type type, string fieldName)
-        {
-            for (var current = type; current != null; current = current.BaseType)
-            {
-                var field = current.GetField(fieldName, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.DeclaredOnly);
-                if (field != null) return field.IsDefined(typeof(ShowInQuestAttribute), true);
-            }
-            return false;
         }
         private static void CommentField(VisualElement parent, string value, Action<string> changed)
         {

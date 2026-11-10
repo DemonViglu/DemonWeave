@@ -11,7 +11,7 @@ namespace DemonWeave.Editor
     internal sealed class QuestScenePicker : PopupWindowContent
     {
         private readonly Scene scene;
-        private readonly bool entitiesOnly;
+        private readonly Type objectType;
         private readonly Action<GameObject> choose;
         private readonly HashSet<Transform> expanded = new HashSet<Transform>();
         private readonly HashSet<Transform> visible = new HashSet<Transform>();
@@ -19,17 +19,17 @@ namespace DemonWeave.Editor
         private string query = "";
         private Vector2 scroll;
 
-        internal QuestScenePicker(Scene scene, bool entitiesOnly, GameObject current, Action<GameObject> choose)
+        internal QuestScenePicker(Scene scene, Type objectType, GameObject current, Action<GameObject> choose)
         {
             this.scene = scene;
-            this.entitiesOnly = entitiesOnly;
+            this.objectType = objectType;
             this.choose = choose;
             foreach (var root in scene.GetRootGameObjects())
             {
                 expanded.Add(root.transform);
-                if (!entitiesOnly) continue;
-                foreach (var entity in root.GetComponentsInChildren<QuestEntity>(true))
-                    for (var t = entity.transform; t && visible.Add(t); t = t.parent) { }
+                if (objectType == typeof(GameObject) || !typeof(Component).IsAssignableFrom(objectType)) continue;
+                foreach (var logic in root.GetComponentsInChildren(objectType, true))
+                    for (var t = ((Component)logic).transform; t && visible.Add(t); t = t.parent) { }
             }
             for (var t = current ? current.transform : null; t; t = t.parent) expanded.Add(t);
         }
@@ -39,7 +39,7 @@ namespace DemonWeave.Editor
         public override void OnGUI(Rect rect)
         {
             if (!scene.isLoaded) { editorWindow.Close(); return; }
-            GUILayout.Label(scene.name + (entitiesOnly ? "  /  Quest Entities" : "  /  Scene Objects"), EditorStyles.boldLabel);
+            GUILayout.Label(scene.name + ("  /  " + objectType.Name), EditorStyles.boldLabel);
             query = search.OnGUI(query);
             scroll = EditorGUILayout.BeginScrollView(scroll);
             bool found = false;
@@ -51,9 +51,9 @@ namespace DemonWeave.Editor
 
         private bool Draw(Transform item, string path, int depth)
         {
-            if (entitiesOnly && !visible.Contains(item)) return false;
+            if (typeof(Component).IsAssignableFrom(objectType) && !visible.Contains(item)) return false;
             bool searching = !string.IsNullOrWhiteSpace(query);
-            bool selectable = !entitiesOnly || item.GetComponent<QuestEntity>();
+            bool selectable = objectType == typeof(GameObject) || item.GetComponent(objectType);
             bool show = !searching || selectable && path.IndexOf(query.Trim(), StringComparison.OrdinalIgnoreCase) >= 0;
             if (show)
             {
@@ -63,7 +63,7 @@ namespace DemonWeave.Editor
                     GUILayout.Space(12 * depth);
                     bool hasChildren = false;
                     foreach (Transform child in item)
-                        if (!entitiesOnly || visible.Contains(child)) { hasChildren = true; break; }
+                        if (objectType == typeof(GameObject) || visible.Contains(child)) { hasChildren = true; break; }
                     if (hasChildren)
                     {
                         bool open = EditorGUI.Foldout(GUILayoutUtility.GetRect(14, 18, GUILayout.Width(14)), expanded.Contains(item), GUIContent.none);

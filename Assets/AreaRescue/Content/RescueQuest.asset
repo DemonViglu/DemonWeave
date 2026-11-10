@@ -22,38 +22,33 @@ MonoBehaviour:
     {\r\n      \"Kind\": \"All\",\r\n      \"Subject\": \"\",\r\n      \"Key\": \"\",\r\n     
     \"Expected\": true,\r\n      \"State\": \"Completed\",\r\n      \"Children\":
     []\r\n    },\r\n    \"InterruptWhen\": null,\r\n    \"StageCompletion\": \"Any\",\r\n   
-    \"FinishCombination\": \"All\",\r\n    \"FailCombination\": \"Any\",\r\n    \"Finish\":
-    [],\r\n    \"Fail\": [],\r\n    \"BeginExec\": [],\r\n    \"FinishExec\": [],\r\n   
-    \"FailExec\": [],\r\n    \"Stages\": [\r\n      {\r\n        \"Id\": \"enter\",\r\n       
-    \"TypeId\": \"core.stage\",\r\n        \"EntityRole\": \"entity:680752b11bae4be1b58cc113f59de460\",\r\n       
-    \"Control\": \"None\",\r\n        \"Results\": [\r\n          \"Entered\"\r\n       
-    ],\r\n        \"Title\": \"Reach the courtyard\",\r\n        \"Comment\": null,\r\n       
+    \"Stages\": [\r\n      {\r\n        \"Id\": \"enter\",\r\n        \"LogicId\":
+    \"rescue.entry\",\r\n        \"Parameters\": {\r\n          \"zone\": {\r\n           
+    \"Id\": \"rescue.entry-zone\"\r\n          }\r\n        },\r\n        \"Control\":
+    \"None\",\r\n        \"Results\": [\r\n          \"Entered\"\r\n        ],\r\n       
+    \"Title\": \"Reach the courtyard\",\r\n        \"Comment\": null,\r\n       
     \"Required\": false,\r\n        \"FinishResult\": \"\",\r\n        \"After\":
     [],\r\n        \"OpenWhen\": {\r\n          \"Kind\": \"All\",\r\n          \"Subject\":
     \"\",\r\n          \"Key\": \"\",\r\n          \"Expected\": true,\r\n         
     \"State\": \"Completed\",\r\n          \"Children\": []\r\n        },\r\n       
     \"RunWhen\": {\r\n          \"Kind\": \"All\",\r\n          \"Subject\": \"\",\r\n         
     \"Key\": \"\",\r\n          \"Expected\": true,\r\n          \"State\": \"Completed\",\r\n         
-    \"Children\": []\r\n        },\r\n        \"InterruptWhen\": null,\r\n       
-    \"Objectives\": [],\r\n        \"Completion\": \"All\",\r\n        \"BeginExec\":
-    [],\r\n        \"FinishExec\": [],\r\n        \"Routes\": [],\r\n        \"Switches\":
-    []\r\n      },\r\n      {\r\n        \"Id\": \"prepare\",\r\n        \"TypeId\":
-    \"core.stage\",\r\n        \"EntityRole\": \"entity:17aec0d8014042cfa8f129a45202bb4c\",\r\n       
-    \"Control\": \"None\",\r\n        \"Results\": [\r\n          \"Ready\",\r\n         
-    \"Defeated\"\r\n        ],\r\n        \"Title\": \"Breach the prison gate\",\r\n       
-    \"Comment\": null,\r\n        \"Required\": false,\r\n        \"FinishResult\":
-    \"\",\r\n        \"After\": [],\r\n        \"OpenWhen\": {\r\n          \"Kind\":
-    \"StageResult\",\r\n          \"Subject\": \"enter\",\r\n          \"Key\": \"Entered\",\r\n         
-    \"Expected\": true,\r\n          \"State\": \"Completed\",\r\n          \"Children\":
-    []\r\n        },\r\n        \"RunWhen\": {\r\n          \"Kind\": \"All\",\r\n         
-    \"Subject\": \"\",\r\n          \"Key\": \"\",\r\n          \"Expected\": true,\r\n         
+    \"Children\": []\r\n        },\r\n        \"InterruptWhen\": null\r\n      },\r\n     
+    {\r\n        \"Id\": \"prepare\",\r\n        \"LogicId\": \"rescue.open\",\r\n       
+    \"Parameters\": {\r\n          \"door\": {\r\n            \"Id\": \"rescue.door\"\r\n         
+    },\r\n          \"timeout\": 20.0\r\n        },\r\n        \"Control\": \"None\",\r\n       
+    \"Results\": [\r\n          \"Ready\",\r\n          \"Defeated\"\r\n        ],\r\n       
+    \"Title\": \"Breach the prison gate\",\r\n        \"Comment\": null,\r\n       
+    \"Required\": false,\r\n        \"FinishResult\": \"\",\r\n        \"After\":
+    [],\r\n        \"OpenWhen\": {\r\n          \"Kind\": \"StageResult\",\r\n         
+    \"Subject\": \"enter\",\r\n          \"Key\": \"Entered\",\r\n          \"Expected\":
+    true,\r\n          \"State\": \"Completed\",\r\n          \"Children\": []\r\n       
+    },\r\n        \"RunWhen\": {\r\n          \"Kind\": \"All\",\r\n          \"Subject\":
+    \"\",\r\n          \"Key\": \"\",\r\n          \"Expected\": true,\r\n         
     \"State\": \"Completed\",\r\n          \"Children\": []\r\n        },\r\n       
-    \"InterruptWhen\": null,\r\n        \"Objectives\": [],\r\n        \"Completion\":
-    \"All\",\r\n        \"BeginExec\": [],\r\n        \"FinishExec\": [],\r\n       
-    \"Routes\": [],\r\n        \"Switches\": []\r\n      },\r\n      {\r\n       
-    \"Id\": \"clear\",\r\n        \"TypeId\": \"core.stage\",\r\n        \"EntityRole\":
-    \"entity:63f6790e7dc54ebf96031f00a70e3b42\",\r\n        \"Control\": \"None\",\r\n       
-    \"Results\": [\r\n          \"Cleared\",\r\n          \"Defeated\"\r\n       
+    \"InterruptWhen\": null\r\n      },\r\n      {\r\n        \"Id\": \"clear\",\r\n       
+    \"LogicId\": \"rescue.combat\",\r\n        \"Parameters\": {},\r\n        \"Control\":
+    \"None\",\r\n        \"Results\": [\r\n          \"Cleared\",\r\n          \"Defeated\"\r\n       
     ],\r\n        \"Title\": \"Defeat the prison guards\",\r\n        \"Comment\":
     \"\",\r\n        \"Required\": false,\r\n        \"FinishResult\": \"\",\r\n       
     \"After\": [],\r\n        \"OpenWhen\": {\r\n          \"Kind\": \"StageResult\",\r\n         
@@ -62,45 +57,39 @@ MonoBehaviour:
     },\r\n        \"RunWhen\": {\r\n          \"Kind\": \"All\",\r\n          \"Subject\":
     \"\",\r\n          \"Key\": \"\",\r\n          \"Expected\": true,\r\n         
     \"State\": \"Completed\",\r\n          \"Children\": []\r\n        },\r\n       
-    \"InterruptWhen\": null,\r\n        \"Objectives\": [],\r\n        \"Completion\":
-    \"All\",\r\n        \"BeginExec\": [],\r\n        \"FinishExec\": [],\r\n       
-    \"Routes\": [],\r\n        \"Switches\": []\r\n      },\r\n      {\r\n       
-    \"Id\": \"rescue\",\r\n        \"TypeId\": \"core.stage\",\r\n        \"EntityRole\":
-    \"entity:42abb92340b14159b61f023ce22c0c88\",\r\n        \"Control\": \"None\",\r\n       
-    \"Results\": [\r\n          \"Rescued\",\r\n          \"Defeated\"\r\n       
-    ],\r\n        \"Title\": \"Free your companion\",\r\n        \"Comment\": null,\r\n       
-    \"Required\": true,\r\n        \"FinishResult\": \"Rescued\",\r\n        \"After\":
-    [],\r\n        \"OpenWhen\": {\r\n          \"Kind\": \"StageResult\",\r\n         
-    \"Subject\": \"clear\",\r\n          \"Key\": \"Cleared\",\r\n          \"Expected\":
-    true,\r\n          \"State\": \"Completed\",\r\n          \"Children\": []\r\n       
-    },\r\n        \"RunWhen\": {\r\n          \"Kind\": \"All\",\r\n          \"Subject\":
-    \"\",\r\n          \"Key\": \"\",\r\n          \"Expected\": true,\r\n         
-    \"State\": \"Completed\",\r\n          \"Children\": []\r\n        },\r\n       
-    \"InterruptWhen\": null,\r\n        \"Objectives\": [],\r\n        \"Completion\":
-    \"All\",\r\n        \"BeginExec\": [],\r\n        \"FinishExec\": [],\r\n       
-    \"Routes\": [],\r\n        \"Switches\": []\r\n      },\r\n      {\r\n       
-    \"Id\": \"defeat\",\r\n        \"TypeId\": \"core.stage\",\r\n        \"EntityRole\":
-    \"entity:0a02d491acec41b380c7048a714b74a6\",\r\n        \"Control\": \"None\",\r\n       
-    \"Results\": [],\r\n        \"Title\": \"Return after defeat\",\r\n        \"Comment\":
-    null,\r\n        \"Required\": false,\r\n        \"FinishResult\": \"\",\r\n       
-    \"After\": [],\r\n        \"OpenWhen\": {\r\n          \"Kind\": \"Any\",\r\n         
-    \"Subject\": \"\",\r\n          \"Key\": \"\",\r\n          \"Expected\": true,\r\n         
-    \"State\": \"Completed\",\r\n          \"Children\": [\r\n            {\r\n             
-    \"Kind\": \"StageResult\",\r\n              \"Subject\": \"prepare\",\r\n             
-    \"Key\": \"Defeated\",\r\n              \"Expected\": true,\r\n             
-    \"State\": \"Completed\",\r\n              \"Children\": []\r\n            },\r\n           
-    {\r\n              \"Kind\": \"StageResult\",\r\n              \"Subject\": \"clear\",\r\n             
-    \"Key\": \"Defeated\",\r\n              \"Expected\": true,\r\n             
-    \"State\": \"Completed\",\r\n              \"Children\": []\r\n            },\r\n           
+    \"InterruptWhen\": null\r\n      },\r\n      {\r\n        \"Id\": \"rescue\",\r\n       
+    \"LogicId\": \"rescue.companion\",\r\n        \"Parameters\": {},\r\n       
+    \"Control\": \"None\",\r\n        \"Results\": [\r\n          \"Rescued\",\r\n         
+    \"Defeated\"\r\n        ],\r\n        \"Title\": \"Free your companion\",\r\n       
+    \"Comment\": null,\r\n        \"Required\": true,\r\n        \"FinishResult\":
+    \"Rescued\",\r\n        \"After\": [],\r\n        \"OpenWhen\": {\r\n         
+    \"Kind\": \"StageResult\",\r\n          \"Subject\": \"clear\",\r\n         
+    \"Key\": \"Cleared\",\r\n          \"Expected\": true,\r\n          \"State\":
+    \"Completed\",\r\n          \"Children\": []\r\n        },\r\n        \"RunWhen\":
+    {\r\n          \"Kind\": \"All\",\r\n          \"Subject\": \"\",\r\n         
+    \"Key\": \"\",\r\n          \"Expected\": true,\r\n          \"State\": \"Completed\",\r\n         
+    \"Children\": []\r\n        },\r\n        \"InterruptWhen\": null\r\n      },\r\n     
+    {\r\n        \"Id\": \"defeat\",\r\n        \"LogicId\": \"rescue.recovery\",\r\n       
+    \"Parameters\": {\r\n          \"mode\": \"RestoreImmediately\"\r\n        },\r\n       
+    \"Control\": \"None\",\r\n        \"Results\": [],\r\n        \"Title\": \"Return
+    after defeat\",\r\n        \"Comment\": null,\r\n        \"Required\": false,\r\n       
+    \"FinishResult\": \"\",\r\n        \"After\": [],\r\n        \"OpenWhen\": {\r\n         
+    \"Kind\": \"Any\",\r\n          \"Subject\": \"\",\r\n          \"Key\": \"\",\r\n         
+    \"Expected\": true,\r\n          \"State\": \"Completed\",\r\n          \"Children\":
+    [\r\n            {\r\n              \"Kind\": \"StageResult\",\r\n             
+    \"Subject\": \"prepare\",\r\n              \"Key\": \"Defeated\",\r\n             
+    \"Expected\": true,\r\n              \"State\": \"Completed\",\r\n             
+    \"Children\": []\r\n            },\r\n            {\r\n              \"Kind\":
+    \"StageResult\",\r\n              \"Subject\": \"clear\",\r\n              \"Key\":
+    \"Defeated\",\r\n              \"Expected\": true,\r\n              \"State\":
+    \"Completed\",\r\n              \"Children\": []\r\n            },\r\n           
     {\r\n              \"Kind\": \"StageResult\",\r\n              \"Subject\": \"rescue\",\r\n             
     \"Key\": \"Defeated\",\r\n              \"Expected\": true,\r\n             
     \"State\": \"Completed\",\r\n              \"Children\": []\r\n            }\r\n         
     ]\r\n        },\r\n        \"RunWhen\": {\r\n          \"Kind\": \"All\",\r\n         
     \"Subject\": \"\",\r\n          \"Key\": \"\",\r\n          \"Expected\": true,\r\n         
     \"State\": \"Completed\",\r\n          \"Children\": []\r\n        },\r\n       
-    \"InterruptWhen\": null,\r\n        \"Objectives\": [],\r\n        \"Completion\":
-    \"All\",\r\n        \"BeginExec\": [],\r\n        \"FinishExec\": [],\r\n       
-    \"Routes\": [],\r\n        \"Switches\": []\r\n      }\r\n    ],\r\n    \"CancelChildrenOnEnd\":
+    \"InterruptWhen\": null\r\n      }\r\n    ],\r\n    \"CancelChildrenOnEnd\":
     false\r\n  }\r\n]"
   editorLayoutJson: "{\r\n  \"courtyard-rescue\": {\r\n    \"enter\": [\r\n     
     0.0,\r\n      119.199982\r\n    ],\r\n    \"prepare\": [\r\n      330.0,\r\n     

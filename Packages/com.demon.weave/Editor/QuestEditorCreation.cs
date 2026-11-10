@@ -94,7 +94,7 @@ namespace DemonWeave.Editor
         private void OpenQuest(string id)
         {
             selectedStageId = null; selectedId = id; showStages = true;
-            detailSection = "Overview"; Rebuild();
+            Rebuild();
         }
         private void OpenCollection()
         {

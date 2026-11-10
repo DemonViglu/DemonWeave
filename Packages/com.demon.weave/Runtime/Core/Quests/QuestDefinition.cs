@@ -5,47 +5,20 @@ using System.Linq;
 namespace DemonWeave.Quests
 {
     // Local model names; not a Genshin wire enum or reconstructed server policy.
-    public enum QuestStatus { Waiting, Active, Completed, Failed, Cancelled }
+    public enum QuestStatus { Waiting, Active, Completed, Cancelled }
     public enum RuleCombination { All, Any }
-    public enum ConditionKind { Fact, QuestState, All, Any, StageState, StageResult, WorldFact, ExternalQuestCompleted }
-    public enum ContentKind { EventCount, Fact, QuestState, StageState }
-    public enum QuestPhase { Begin, Finish, Fail }
-
+    public enum ConditionKind { QuestState, All, Any, StageState, StageResult, WorldFact, ExternalQuestCompleted }
     [Serializable]
     public sealed class QuestCondition
     {
         public ConditionKind Kind;
-        public string Subject = ""; // Fact: bound entity role; QuestState: stable quest ID.
+        public string Subject = ""; // Stable fact, quest or node ID, according to Kind.
         public string Key = "";
         public bool Expected = true;
         public QuestStatus State = QuestStatus.Completed;
         public List<QuestCondition> Children = new List<QuestCondition>();
         public QuestCondition Copy() => new QuestCondition { Kind = Kind, Subject = Subject, Key = Key,
             Expected = Expected, State = State, Children = Children?.Select(x => x?.Copy()).ToList() };
-    }
-
-    [Serializable]
-    public sealed class QuestContent
-    {
-        public string Id = "";
-        public string Label = "";
-        public ContentKind Kind;
-        public string Subject = "";
-        public string Key = "";
-        public int Required = 1;
-        public bool Expected = true;
-        public QuestStatus State = QuestStatus.Completed;
-        public QuestContent Copy() => (QuestContent)MemberwiseClone();
-    }
-
-    [Serializable]
-    public sealed class QuestExec
-    {
-        public string Id = "";
-        public string CapabilityId = "";
-        // Opaque to Quest. The host validates/decodes the selected capability's typed argument schema.
-        public string ArgumentsJson = "{}";
-        public QuestExec Copy() => (QuestExec)MemberwiseClone();
     }
 
     [Serializable]
@@ -60,41 +33,19 @@ namespace DemonWeave.Quests
         public QuestCondition RunWhen = new QuestCondition { Kind = ConditionKind.All };
         public QuestCondition InterruptWhen;
         public RuleCombination StageCompletion = RuleCombination.All;
-        public RuleCombination FinishCombination = RuleCombination.All;
-        public RuleCombination FailCombination = RuleCombination.Any;
-        public List<QuestContent> Finish = new List<QuestContent>();
-        public List<QuestContent> Fail = new List<QuestContent>();
-        public List<QuestExec> BeginExec = new List<QuestExec>();
-        public List<QuestExec> FinishExec = new List<QuestExec>();
-        public List<QuestExec> FailExec = new List<QuestExec>();
         public List<QuestStage> Stages = new List<QuestStage>();
         // Explicit local content policy, never inferred from ParentId or visual order.
         public bool CancelChildrenOnEnd;
         public QuestDefinition Copy() => new QuestDefinition { Id = Id, Title = Title, ParentId = ParentId, StartComment = StartComment, FinishComment = FinishComment,
-            Accept = Accept?.Copy(), RunWhen = RunWhen?.Copy(), InterruptWhen = InterruptWhen?.Copy(), StageCompletion = StageCompletion, FinishCombination = FinishCombination, FailCombination = FailCombination,
-            Finish = Finish?.Select(x => x?.Copy()).ToList(), Fail = Fail?.Select(x => x?.Copy()).ToList(),
-            BeginExec = BeginExec?.Select(x => x?.Copy()).ToList(), FinishExec = FinishExec?.Select(x => x?.Copy()).ToList(),
-            FailExec = FailExec?.Select(x => x?.Copy()).ToList(), CancelChildrenOnEnd = CancelChildrenOnEnd,
+            Accept = Accept?.Copy(), RunWhen = RunWhen?.Copy(), InterruptWhen = InterruptWhen?.Copy(), StageCompletion = StageCompletion,
+            CancelChildrenOnEnd = CancelChildrenOnEnd,
             Stages = Stages?.Select(x => x?.Copy()).ToList() };
-    }
-
-    public interface IQuestStateWorld
-    {
-        bool? ReadWorldFact(string id);
-        bool IsQuestCompleted(string collectionId, string questId);
     }
 
     public interface IQuestWorld
     {
-        // Missing is distinct from false: an absent/destroyed binding cannot satisfy Expected=false.
-        bool? ReadFact(string role, string key);
-    }
-
-    public readonly struct QuestWorldEvent
-    {
-        public Guid Id { get; }
-        public string Subject { get; }
-        public string Key { get; }
-        public QuestWorldEvent(Guid id, string subject, string key) { Id = id; Subject = subject; Key = key; }
+        // A missing fact never satisfies a false requirement.
+        bool? ReadWorldFact(string id);
+        bool IsQuestCompleted(string collectionId, string questId);
     }
 }

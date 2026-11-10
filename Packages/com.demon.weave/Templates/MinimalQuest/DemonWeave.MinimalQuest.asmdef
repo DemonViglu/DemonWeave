@@ -1,0 +1,7 @@
+{
+  "name": "DemonWeave.MinimalQuest",
+  "references": [
+    "DemonWeave.Unity"
+  ],
+  "autoReferenced": true
+}

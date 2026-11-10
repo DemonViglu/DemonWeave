@@ -6,7 +6,7 @@ namespace DemonWeave.Editor
 {
     internal static class QuestGameplayMenu
     {
-        [MenuItem("Assets/Create/DemonWeave/Gameplay Component", priority = 81)]
+        [MenuItem("Assets/Create/DemonWeave/Node Logic", priority = 81)]
         private static void Create() => ProjectWindowUtil.CreateScriptAssetFromTemplateFile(
             "Packages/com.demon.weave/Editor/Templates/QuestGameplay.cs.txt", "QuestGameplay.cs");
     }

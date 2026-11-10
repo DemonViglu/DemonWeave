@@ -1,6 +1,5 @@
 using System;
 using System.Linq;
-using DemonWeave.Unity;
 using DemonWeave.World;
 using UnityEngine;
 using UnityEngine.Timeline;
@@ -12,6 +11,7 @@ namespace DemonWeave.AreaRescue
     {
         private readonly AttemptBindings objects = new AttemptBindings();
         private readonly EncounterSpawner spawner;
+        private readonly int enemyCount;
         private readonly TimelineOperation timeline;
         private readonly CombatActor player;
         private readonly Action changed;
@@ -33,19 +33,19 @@ namespace DemonWeave.AreaRescue
 
         public RescueEncounterSession(EncounterSpawner spawner, EncounterDefinition definition, CombatActor player,
             TimelineOperation timeline, TimelineAsset opening, AnimationTrack track, SignalAsset signal,
-            GameObject doorObject, float timeout, Action changed, Action<string> feedback)
+            Animator doorAnimator, float timeout, Action changed, Action<string> feedback)
         {
-            if (!spawner || !definition || !player || !timeline || !opening || !track || !signal || !doorObject || !doorObject.GetComponent<Animator>())
+            if (!spawner || !definition || !player || !timeline || !opening || !track || !signal || !doorAnimator)
                 throw new ArgumentException("Encounter requires its spawner, definition, player, Timeline, track, release signal and door Animator.");
             if (!opening.GetOutputTracks().Contains(track)) throw new ArgumentException("Door track does not belong to the encounter Timeline.");
-            this.spawner = spawner; this.player = player; this.timeline = timeline;
+            this.spawner = spawner; enemyCount = definition.EnemyCount; this.player = player; this.timeline = timeline;
             this.changed = changed; this.feedback = feedback;
-            door = doorObject.transform; doorPosition = door.localPosition; doorRotation = door.localRotation;
+            door = doorAnimator.transform; doorPosition = door.localPosition; doorRotation = door.localRotation;
             try
             {
                 spawner.Prepare(definition, objects);
                 player.Died += OnPlayerDied; watching = true;
-                timeline.Director.SetGenericBinding(track, doorObject.GetComponent<Animator>());
+                timeline.Director.SetGenericBinding(track, doorAnimator);
                 timeline.Begin(opening, signal, timeout);
                 feedback("The gate is opening. Stay ready.");
             }
@@ -59,6 +59,11 @@ namespace DemonWeave.AreaRescue
             if (!string.IsNullOrEmpty(spawner.Error)) feedback("Preparation failed: " + spawner.Error);
             else if (timeline.State == TimelineOperationState.Failed) feedback(timeline.Error);
             else if (spawner.Attempt?.HasUnavailableRequiredMember == true) feedback("A required guard disappeared without a confirmed defeat. Restore the checkpoint.");
+            else if (Defeated) feedback("Player defeated.");
+            else if (DialogueFinished) feedback("Your companion is safe.");
+            else if (Rescued) feedback("Waiting for rescue dialogue to finish");
+            else if (RescueAvailable) feedback("Waiting for player to rescue the companion");
+            else if (Prepared) feedback($"Guards defeated: {spawner.Attempt?.ConfirmedDeaths ?? 0} / {enemyCount}");
         }
         public ActionResult EnableRescue()
         {

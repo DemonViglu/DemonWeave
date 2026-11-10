@@ -12,9 +12,9 @@ namespace DemonWeave.Editor
             if (EditorApplication.isPlaying) return;
             if (QuestStageGraph.ParseResultPort(from, out var sourceId, out var result))
             {
-                var entitySource = quest.Stages.Single(s => s.Id == sourceId);
+                var sourceNode = quest.Stages.Single(s => s.Id == sourceId);
                 if (to == "$finish") {
-                    Edit("Connect Finish", () => { entitySource.Required = true; entitySource.FinishResult = result; }); return;
+                    Edit("Connect Finish", () => { sourceNode.Required = true; sourceNode.FinishResult = result; }); return;
                 }
                 var branchTarget = quest.Stages.Single(s => s.Id == to);
                 bool HasOtherRule(QuestCondition c) => c.Kind != ConditionKind.All && c.Kind != ConditionKind.Any && c.Kind != ConditionKind.StageResult || c.Children.Any(HasOtherRule);
@@ -29,8 +29,8 @@ namespace DemonWeave.Editor
                 return;
             }
             var source = quest.Stages.FirstOrDefault(s => s.Id == from); var target = quest.Stages.FirstOrDefault(s => s.Id == to);
-            if (from == "$start" && target != null) { Edit("Make Entry Node", () => { target.After.Clear(); if (target.UsesEntityExecution()) target.OpenWhen = new QuestCondition { Kind = ConditionKind.All }; else EnableEntry(target); }); return; }
-            if (source != null && source.UsesEntityExecution() && source.Results.Count == 0) return;
+            if (from == "$start" && target != null) { Edit("Make Entry Node", () => { target.After.Clear(); if (target.UsesLogicExecution()) target.OpenWhen = new QuestCondition { Kind = ConditionKind.All }; else EnableEntry(target); }); return; }
+            if (source != null && source.UsesLogicExecution() && source.Results.Count == 0) return;
             if (to == "$finish" && source != null) { Edit("Require Node For Completion", () => source.Required = true); return; }
             if (source == null || target == null || target.After.Contains(from)) return;
             var visited = new HashSet<string>();
@@ -77,20 +77,18 @@ namespace DemonWeave.Editor
         {
             if (EditorApplication.isPlaying) return;
             var references = book.Quests.Where(q => !ids.Contains(q.Id) && ids.Any(id => QuestAuthoringChecks.References(q, id))).Select(q => q.Title).ToArray();
-            if (references.Length > 0) { notice = "Referenced by: " + string.Join("、", references) + ". Update those prerequisites or objectives first."; UpdateStatus(); return; }
+            if (references.Length > 0) { notice = "Referenced by: " + string.Join("、", references) + ". Update those dependencies first."; UpdateStatus(); return; }
             selectedStageId = null;
             Edit("Delete Quest", () => book.Quests.RemoveAll(q => ids.Contains(q.Id)));
         }
         private void DeleteStages(QuestDefinition quest, IReadOnlyList<string> ids)
         {
             if (EditorApplication.isPlaying) return;
-            bool ConditionUses(QuestCondition c) => c != null && (c.Kind == ConditionKind.StageState && ids.Contains(c.Subject) || c.Children != null && c.Children.Any(ConditionUses));
-            bool GoalUses(QuestContent c) => c.Kind == ContentKind.StageState && ids.Contains(c.Subject);
+            bool ConditionUses(QuestCondition c) => c != null && ((c.Kind == ConditionKind.StageState || c.Kind == ConditionKind.StageResult) && ids.Contains(c.Subject) || c.Children != null && c.Children.Any(ConditionUses));
             var remaining = quest.Stages.Where(s => !ids.Contains(s.Id)).ToArray();
             var dependents = remaining.Where(s => s.After.Any(ids.Contains) || ConditionUses(s.OpenWhen) || QuestStageGraph.ResultConditions(s.OpenWhen).Any(c => ids.Contains(c.Subject))
-                || s.Objectives.Any(GoalUses) || s.Routes.Any(r => ConditionUses(r.AvailableWhen) || r.Objectives.Any(GoalUses))
-                || s.Switches.Any(r => ConditionUses(r.When))).Select(s => s.Title).ToArray();
-            if (dependents.Length > 0 || quest.Finish.Concat(quest.Fail).Any(GoalUses))
+                || ConditionUses(s.RunWhen) || ConditionUses(s.InterruptWhen)).Select(s => s.Title).ToArray();
+            if (dependents.Length > 0)
             { notice = "Cannot delete: " + (dependents.Length > 0 ? string.Join("、", dependents) : "Quest completion/failure rules") + " still references these nodes. Update the references first."; UpdateStatus(); return; }
             selectedStageId = null;
             Edit("Delete Nodes", () => quest.Stages.RemoveAll(s => ids.Contains(s.Id)));

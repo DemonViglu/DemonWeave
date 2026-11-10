@@ -19,22 +19,14 @@ namespace DemonWeave.Editor
                 if (dependencyErrors.Count > 0) return dependencyErrors;
                 var definitions = QuestBookAsset.RuntimeDefinitions(source ?? book.Quests);
                 if (definitions.Count == 0) return Array.Empty<QuestDiagnostic>();
-                var bindings = host == null ? null : new QuestBindings(host.BindingEntries);
-                var catalog = host?.CreateCapabilities();
+                var bindings = host == null ? null : new QuestBindings(host.BindingEntries, (host as Component)?.gameObject);
                 if (host is QuestSceneHost sceneHost) {
                     var stateError = sceneHost.ValidateWorldBindings(definitions);
                     if (!string.IsNullOrEmpty(stateError)) return new[] { new QuestDiagnostic("World State", "state.configuration", stateError) };
                 }
-                if (host != null)
-                    foreach (var quest in definitions) foreach (var node in quest.Stages.Where(n => n.UsesEntityExecution())) {
-                        var entity = host.BindingEntries.FirstOrDefault(b => b.Role == node.EntityRole)?.Entity;
-                        var error = !entity ? "Target Entity is missing." : !entity.Results.SequenceEqual(node.Results) ? "Entity result contract differs. Rebind the target to refresh it." : entity.CheckConfiguration();
-                        if (!string.IsNullOrEmpty(error)) return new[] { new QuestDiagnostic(quest.Title + "/" + node.Title, "entity.configuration", error) };
-                    }
-                return QuestValidation.Validate(definitions,
-                    bindings == null ? (Func<string, bool>)null : role => bindings.Find(role),
-                    catalog == null ? (Func<string, string, string>)null : catalog.Validate,
-                    host == null ? (Func<string, string, bool, string>)null : (role, key, isEvent) => host.Signals.Any(s => s.Role == role && s.Key == key && s.IsEvent == isEvent) ? "" : "Unregistered fact/event: " + role + "." + key);
+                foreach (var quest in definitions) foreach (var node in quest.Stages.Where(n => n.UsesLogicExecution()))
+                    QuestLogicCatalog.Validate(node, bindings);
+                return QuestValidation.Validate(definitions, id => QuestLogicCatalog.Find(id) != null);
             }
             catch (Exception e) { return new[] { new QuestDiagnostic("book", "invalid", e.Message) }; }
         }
@@ -79,13 +71,8 @@ namespace DemonWeave.Editor
                 foreach (var child in condition.Children)
                     foreach (var dependency in Dependencies(child)) yield return dependency;
         }
-        public static IEnumerable<QuestExec> Executions(QuestDefinition q) => q.BeginExec.Concat(q.FinishExec).Concat(q.FailExec)
-            .Concat(q.Stages.SelectMany(s => s.BeginExec.Concat(s.FinishExec).Concat(s.Routes.SelectMany(r => r.SelectedExec))));
         public static bool References(QuestDefinition q, string id) => q.ParentId == id
-            || Dependencies(q.Accept).Any(c => c.Subject == id)
-            || q.Finish.Concat(q.Fail).Concat(q.Stages.SelectMany(s => s.Objectives.Concat(s.Routes.SelectMany(r => r.Objectives))))
-                .Any(c => c.Kind == ContentKind.QuestState && c.Subject == id)
-            || q.Stages.SelectMany(s => new[] { s.OpenWhen }.Concat(s.Routes.Select(r => r.AvailableWhen)).Concat(s.Switches.Select(t => t.When)))
+            || new[] { q.Accept, q.RunWhen, q.InterruptWhen }.Concat(q.Stages.SelectMany(s => new[] { s.OpenWhen, s.RunWhen, s.InterruptWhen }))
                 .SelectMany(Dependencies).Any(c => c.Subject == id);
         public static void RemoveCondition(QuestDefinition quest, QuestCondition target)
         {
@@ -112,14 +99,13 @@ namespace DemonWeave.Editor
                 return (book ? book.Quests.FirstOrDefault(q => q.Id == condition.Key)?.Title ?? "Missing Quest" : "Missing collection") + " completed";
             }
             if (condition.Kind == ConditionKind.StageResult) return "Node " + condition.Subject + " / " + condition.Key;
-            if (condition.Kind == ConditionKind.Fact) return condition.Subject + "." + condition.Key + " = " + condition.Expected;
             if (condition.Children == null || condition.Children.Count == 0) return condition.Kind == ConditionKind.All ? "No prerequisites" : "Empty Any condition";
             return (condition.Kind == ConditionKind.All ? "All" : "Any") + "（" + string.Join("；", condition.Children.Select(c => ConditionText(c, title))) + "）";
         }
         public static string Status(QuestStatus value)
         {
             switch (value) { case QuestStatus.Waiting: return "Waiting"; case QuestStatus.Active: return "Active";
-                case QuestStatus.Completed: return "Completed"; case QuestStatus.Failed: return "Failure"; default: return "Cancelled"; }
+                case QuestStatus.Completed: return "Completed"; default: return "Cancelled"; }
         }
     }
 }

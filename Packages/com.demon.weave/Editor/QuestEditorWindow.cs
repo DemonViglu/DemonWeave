@@ -42,7 +42,7 @@ namespace DemonWeave.Editor
         {
             if (!asset) return;
             var window = GetWindow<QuestEditorWindow>("DemonWeave");
-            window.book = asset; window.hostObject = host; window.selectedId = null; window.selectedStageId = null; window.detailSection = "Overview"; window.graph = null;
+            window.book = asset; window.hostObject = host; window.selectedId = null; window.selectedStageId = null; window.graph = null;
             window.showStages = true;
             window.minSize = new Vector2(1080, 700); window.CreateGUI(); window.Show(); window.Focus();
         }
@@ -81,8 +81,6 @@ namespace DemonWeave.Editor
             toolbar.Add(new ToolbarButton(() => { if (stageGraph != null) stageGraph.FrameAll(); else graph?.FrameAll(); }) { text = "Frame All" });
             var tables = new ToolbarMenu { text = "More" };
             tables.menu.AppendAction("New Quest", _ => AddQuest(), _ => EditorApplication.isPlaying ? DropdownMenuAction.Status.Disabled : DropdownMenuAction.Status.Normal);
-            tables.menu.AppendAction("Advanced fields", _ => { technicalView = !technicalView; Rebuild(); },
-                _ => technicalView ? DropdownMenuAction.Status.Checked : DropdownMenuAction.Status.Normal);
             tables.menu.AppendAction("AI Changes…", _ => QuestProposalWindow.Open(book, hostObject),
                 _ => Host == null ? DropdownMenuAction.Status.Disabled : DropdownMenuAction.Status.Normal);
             tables.menu.AppendAction("Export CSV", _ => {
@@ -128,7 +126,6 @@ namespace DemonWeave.Editor
             try
             {
                 lastDocument = book.ExportDefinitions();
-                LoadAuthoringProfile();
                 if (selectedId == null || !book.Quests.Any(q => q.Id == selectedId)) selectedId = book.Quests.FirstOrDefault()?.Id;
                 UpdateBreadcrumbs();
                 body.Add(TaskList());
@@ -140,11 +137,6 @@ namespace DemonWeave.Editor
                     binding.Add(new Label("This collection is not used by the Scene Host.") { style = { flexGrow = 1, whiteSpace = WhiteSpace.Normal } });
                     var assign = new Button(AssignCollectionToHost) { text = "Use Collection in Scene", name = "assign-collection" };
                     assign.SetEnabled(!EditorApplication.isPlaying); binding.Add(assign); graphArea.Add(binding);
-                }
-                if (technicalView && Host is IQuestRecoveryAuthoring recovery)
-                {
-                    var recoveryButton = new Button(() => { detailSection = "Recovery"; BuildInspector(); }) { text = "Recovery  ·  " + recovery.RecoveryTrigger + "  > Inspect", tooltip = recovery.RecoveryOutcome };
-                    recoveryButton.style.height = 40; recoveryButton.style.color = new Color(1,.78f,.42f); recoveryButton.style.backgroundColor = new Color(.18f,.13f,.12f); graphArea.Add(recoveryButton);
                 }
                 var detailPane = new VisualElement { style = { minWidth = 320, flexGrow = 1 } };
                 inspectorHeader = new VisualElement { style = { paddingLeft = 14, paddingRight = 14, backgroundColor = new Color(.10f,.13f,.18f) } }; detailPane.Add(inspectorHeader);
@@ -169,22 +161,16 @@ namespace DemonWeave.Editor
                     else if (selected != null)
                     {
                         nodePositions ??= QuestGraphLayoutStore.Read(book, selected.Id);
-                        var graphCapabilities = Host?.CreateCapabilities();
-                        stageGraph = new QuestStageGraph(QuestBookAsset.Compile(selected, false), stageId => {
-                            selectedStageId = stageId; detailSection = "Objective"; if (stageId == "$start" || stageId == "$finish") { Rebuild(); return; } BuildInspector();
+                        stageGraph = new QuestStageGraph(selected.Copy(), stageId => {
+                            selectedStageId = stageId; if (stageId == "$start" || stageId == "$finish") { Rebuild(); return; } BuildInspector();
                             inspector.schedule.Execute(() => { var field = inspector.Q<VisualElement>("stage-" + stageId); if (field != null) inspector.ScrollTo(field); }).ExecuteLater(1);
-                        }, stage => {
-                            var producer = authorProfile?.ProducerFor(Host, stage.OpenWhen);
-                            var sources = producer == null ? Array.Empty<QuestStage>() : QuestBookAsset.Compile(selected, false).Stages.Where(s => s.Id != stage.Id && s.BeginExec.Concat(s.FinishExec).Any(e => authorProfile.Produces(Host, e, stage.OpenWhen))).ToArray();
-                            return sources.Length == 1 ? sources[0] : null;
-                        }, AuthorCondition, ids => DeleteStages(selected, ids), (from, to) => DisconnectStages(selected, from, to), (from, to) => ConnectStages(selected, from, to), () => AddStage(selected), nodePositions == null,
-                            (node, action) => graphCapabilities?.Find(action.CapabilityId, node.EntityRole)?.Label ?? action.CapabilityId,
+                        }, ids => DeleteStages(selected, ids), (from, to) => DisconnectStages(selected, from, to), (from, to) => ConnectStages(selected, from, to), () => AddStage(selected), nodePositions == null,
                                                         (id, position) => AddStage(selected, position), node => {
                                 if (node.Control != QuestControl.None) { AssetDatabase.OpenAsset(AssetDatabase.LoadAssetAtPath<MonoScript>("Packages/com.demon.weave/Runtime/Core/Quests/QuestRun.Stages.cs")); return; }
-                                var entity = Host?.BindingEntries.FirstOrDefault(b => b.Role == node.EntityRole)?.Entity;
-                                if (entity) OpenImplementation(entity.GetType());
-                                else { notice = "Assign a target Entity to open its code."; UpdateStatus(); }
-                            }, node => node.Comment ?? Host?.BindingEntries.FirstOrDefault(b => b.Role == node.EntityRole)?.Entity?.Comment,
+                                var logic = QuestLogicCatalog.Find(node.LogicId);
+                                if (logic != null) OpenImplementation(logic.Type);
+                                else { notice = "Select a Logic implementation to open its code."; UpdateStatus(); }
+                            }, node => node.Comment ?? QuestLogicCatalog.Find(node.LogicId)?.Comment,
                             positions => QuestGraphLayoutStore.Save(book, selected.Id, positions),
                             (control, position) => AddStage(selected, position, control));
                         graphArea.Add(stageGraph);
@@ -193,7 +179,7 @@ namespace DemonWeave.Editor
                     }
 
                 }
-                if (showStages && !technicalView && selectedStageId != "$start" && selectedStageId != "$finish" && (book.Quests.Count == 0 || book.Quests.FirstOrDefault(q => q.Id == selectedId)?.Stages.Count == 0))
+                if (showStages && selectedStageId != "$start" && selectedStageId != "$finish" && (book.Quests.Count == 0 || book.Quests.FirstOrDefault(q => q.Id == selectedId)?.Stages.Count == 0))
                 {
                     body.Remove(split); graphArea.RemoveFromHierarchy(); body.Add(graphArea);
                 }
@@ -207,58 +193,8 @@ namespace DemonWeave.Editor
             inspector.Clear(); inspectorHeader.Clear(); live = null;
             var quest = book.Quests.FirstOrDefault(q => q.Id == selectedId);
             if (quest == null) return;
-            if (!technicalView) { BuildAuthorInspector(quest); return; }
-            var stage = quest.Stages.FirstOrDefault(s => s.Id == selectedStageId);
-            inspectorHeader.Add(Heading(stage == null ? quest.Title : stage.Title));
-            if (stage != null) inspectorHeader.Add(new Button(() => { selectedStageId = null; detailSection = "Overview"; BuildInspector(); }) { text = "Back to Quest" });
-            var sections = stage == null ? new[] { "Overview", "Activation", "Failure", "Recovery", "Runtime" } : new[] { "Objective", "Conditions", "Action", "Routes", "Recovery", "Runtime" };
-            if (!sections.Contains(detailSection)) detailSection = sections[0];
-            Tabs(inspectorHeader, sections, detailSection, value => { detailSection = value; inspector.scrollOffset = Vector2.zero; BuildInspector(); });
-            var editable = new VisualElement(); editable.SetEnabled(!EditorApplication.isPlaying); inspector.Add(editable);
-            if (detailSection == "Recovery") BuildRecovery(editable);
-            else if (detailSection == "Runtime")
-            { inspector.Add(new HelpBox("Inspect the running instance. Exit Play to edit content.", HelpBoxMessageType.Info)); live = new Label { style = { whiteSpace = WhiteSpace.Normal } }; inspector.Add(live); }
-            else if (stage != null) BuildStages(editable, quest);
-            else if (detailSection == "Overview")
-            {
-                Text(editable, "Quest Name", quest.Title, value => Edit("Rename Quest", () => quest.Title = value));
-                BuildStages(editable, quest);
-                if (quest.Stages.Count == 0) BuildContents(editable, quest, false);
-                var advanced = new Foldout { text = "Ownership and Lifecycle", value = false }; editable.Add(advanced);
-                QuestChoice(advanced, "Parent Quest", quest.ParentId, value => Edit("Change Parent", () => quest.ParentId = value), true, quest.Id);
-                var cancel = new Toggle("Cancel children on exit") { value = quest.CancelChildrenOnEnd }; cancel.RegisterValueChangedCallback(e => Edit("Change Exit Policy", () => quest.CancelChildrenOnEnd = e.newValue)); advanced.Add(cancel);
-                BuildExecs(advanced, quest.BeginExec, "On Quest Enter"); BuildExecs(advanced, quest.FinishExec, "On Quest Complete");
-            }
-            else if (detailSection == "Activation") BuildCondition(editable, quest.Accept, value => quest.Accept = value, 0);
-            else if (detailSection == "Failure")
-            {
-                if (quest.Fail.Count == 0) editable.Add(new HelpBox("No quest failure conditions configured.", HelpBoxMessageType.Info));
-                BuildContents(editable, quest, true); BuildExecs(editable, quest.FailExec, "On Quest Fail");
-            }
+            BuildAuthorInspector(quest);
             UpdateStatus();
-        }
-        private void BuildRecovery(VisualElement parent)
-        {
-            parent.Add(Heading("Recovery"));
-            if (!(Host is IQuestRecoveryAuthoring recovery))
-            { parent.Add(new HelpBox("No recovery provider is connected.", HelpBoxMessageType.Info)); return; }
-            parent.Add(new Label("Trigger: " + recovery.RecoveryTrigger) { style = { whiteSpace = WhiteSpace.Normal, marginBottom = 16 } });
-            var data = new SerializedObject(hostObject); var property = data.FindProperty(recovery.RecoveryProperty);
-            if (property != null)
-            {
-                var lastValue = property.contentHash;
-                var field = new PropertyField(property, "Policy"); parent.Add(field);
-                field.RegisterCallback<SerializedPropertyChangeEvent>(_ => {
-                    data.ApplyModifiedProperties();
-                    var current = data.FindProperty(recovery.RecoveryProperty).contentHash;
-                    if (current == lastValue) return;
-                    lastValue = current; MarkHost();
-                    rootVisualElement.schedule.Execute(Rebuild);
-                });
-                field.Bind(data);
-            }
-            parent.Add(new Label("Result: " + recovery.RecoveryOutcome) { style = { whiteSpace = WhiteSpace.Normal, marginTop = 16, marginBottom = 16 } });
-            parent.Add(new HelpBox("Host recovery cancels the attempt and restores a checkpoint.", HelpBoxMessageType.Info));
         }
         private void MarkHost()
         {
@@ -300,7 +236,7 @@ namespace DemonWeave.Editor
             var run = Host?.BookAsset == book ? Host.ActiveRun : null;
             graph?.UpdateStates(run);
             stageGraph?.UpdateStates(run?.Find(selectedId));
-            if (!technicalView && live != null)
+            if (live != null)
             {
                 var instance = run?.Find(selectedId);
                 if (Host == null) live.text = "No Scene Host connected.";
@@ -310,10 +246,7 @@ namespace DemonWeave.Editor
                 else if (string.IsNullOrEmpty(selectedStageId))
                     live.text = QuestAuthoringChecks.Status(instance.State) + "\n" + string.Join("\n", run.Explain(selectedId)) + "\n"
                         + string.Join("\n", instance.Stages.Select(s => s.Title + ": " + QuestAuthoringChecks.Status(s.State)));
-                else if (instance.Stage(selectedStageId) != null) live.text = string.Join("\n", run.ExplainStage(selectedId, selectedStageId, (role, key) => {
-                    var receiver = Host.BindingEntries.FirstOrDefault(b => b.Role == role)?.Target;
-                    return (receiver ? receiver.name : role) + " / " + (Host.Signals.FirstOrDefault(s => s.Role == role && s.Key == key).Label ?? key);
-                }));
+                else if (instance.Stage(selectedStageId) != null) live.text = string.Join("\n", run.ExplainStage(selectedId, selectedStageId));
                 else live.text = "This node is not in the running definition snapshot.";
                 if (Host != null && Host.BookAsset == book && Host.Activity.Count > 0)
                     {
@@ -353,82 +286,5 @@ namespace DemonWeave.Editor
             Choice(parent, label, ids, value, changed, id => string.IsNullOrEmpty(id) ? "None" : book.Quests.FirstOrDefault(q => q.Id == id)?.Title ?? "Missing: " + id);
         }
         private QuestStage SelectedNode => book?.Quests.FirstOrDefault(q => q.Id == selectedId)?.Stages.FirstOrDefault(n => n.Id == selectedStageId);
-        private void RoleChoice(VisualElement parent, string label, string value, Action<string> changed, bool entityOnly = false)
-        {
-            var current = Host?.BindingEntries.FirstOrDefault(b => b.Role == value);
-            var row = ItemRow(parent);
-            var field = new ObjectField(entityOnly ? "Target" : ObjectNames.NicifyVariableName(label)) {
-                objectType = typeof(UnityEngine.Object), allowSceneObjects = true,
-                value = entityOnly && current?.Entity ? (UnityEngine.Object)current.Entity : current?.Target,
-                name = "target-" + label,
-                tooltip = "Drop a scene GameObject or its QuestEntity component."
-            };
-            field.style.flexGrow = 1; field.style.flexBasis = 0; field.style.minWidth = 0;
-            field.labelElement.style.minWidth = 45; field.labelElement.style.width = 45;
-            field.SetEnabled(Host != null && !EditorApplication.isPlaying); row.Add(field);
-            var selector = field.Q(className: "unity-object-field__selector");
-            if (selector != null) selector.style.display = DisplayStyle.None;
-            Button browse = null;
-            browse = IconAction(row, "⌕", "Search scene objects", () => {
-                if (!hostObject) return;
-                UnityEditor.PopupWindow.Show(browse.worldBound,
-                    new QuestScenePicker(hostObject.gameObject.scene, false, current?.Target, go => {
-                        if (field.panel != null && !EditorApplication.isPlaying) field.value = go;
-                    }));
-            });
-            browse.SetEnabled(Host != null && !EditorApplication.isPlaying);
-            IconAction(row, "◎", "Locate object in Hierarchy", () => {
-                Selection.activeGameObject = current.Target; EditorGUIUtility.PingObject(current.Target);
-            }).SetEnabled(current?.Target);
-            if (entityOnly)
-            {
-                IconAction(row, "▾", "Choose a QuestEntity component on this object", () => {
-                    var entities = current.Target.GetComponents<QuestEntity>();
-                    PickCatalog("Components on " + current.Target.name, entities.Select((entity, index) => new QuestCatalogPicker.Entry {
-                        Id = entity.Id, Label = entity.GetType().Name + " (" + (index + 1) + ")", Choose = () => field.value = entity
-                    }));
-                }).SetEnabled(current?.Target && current.Target.GetComponents<QuestEntity>().Length > 0 && !EditorApplication.isPlaying);
-                IconAction(row, "⚙", "Inspect this component instance", () => EditorUtility.OpenPropertyEditor(current.Entity)).SetEnabled(current?.Entity);
-            }
-            field.RegisterValueChangedCallback(e => {
-                var component = e.newValue as Component;
-                var target = component ? component.gameObject : e.newValue as GameObject;
-                if (e.newValue && (!target || !hostObject || target.scene != hostObject.gameObject.scene || !target.scene.IsValid()))
-                { field.SetValueWithoutNotify(e.previousValue); notice = "Choose an object from the runner's scene."; UpdateStatus(); return; }
-                var entity = entityOnly ? e.newValue as QuestEntity : null;
-                if (entityOnly && target && !entity)
-                {
-                    var candidates = target.GetComponents<QuestEntity>();
-                    if (candidates.Length == 1) entity = candidates[0];
-                    else if (candidates.Length > 1)
-                    {
-                        field.SetValueWithoutNotify(e.previousValue);
-                        PickCatalog("Components on " + target.name, candidates.Select((candidate, index) => new QuestCatalogPicker.Entry {
-                            Id = candidate.Id, Label = candidate.GetType().Name + " (" + (index + 1) + ")", Choose = () => field.value = candidate
-                        })); return;
-                    }
-                }
-                Undo.IncrementCurrentGroup(); int group = Undo.GetCurrentGroup();
-                if (!target) { changed(""); Undo.CollapseUndoOperations(group); return; }
-                if (entity && (string.IsNullOrEmpty(entity.Id) || UnityEngine.Object.FindObjectsByType<QuestEntity>(FindObjectsSortMode.None).Any(other => other != entity && other.Id == entity.Id)))
-                {
-                    Undo.RecordObject(entity, "Assign Entity Identity");
-                    var data = new SerializedObject(entity); data.FindProperty("entityId").stringValue = Guid.NewGuid().ToString("N");
-                    data.ApplyModifiedProperties(); PrefabUtility.RecordPrefabInstancePropertyModifications(entity);
-                }
-                var binding = Host.BindingEntries.FirstOrDefault(b => entity ? b.Entity == entity : !b.Entity && b.Object == target);
-                if (binding == null)
-                {
-                    Undo.RecordObject(hostObject, "Bind Quest Reference");
-                    binding = new EntityBinding { Role = entity ? "entity:" + entity.Id : "object:" + Guid.NewGuid().ToString("N"), Entity = entity, Object = entity ? null : target };
-                    Host.BindingEntries.Add(binding); MarkHost();
-                }
-                changed(binding.Role); Undo.CollapseUndoOperations(group);
-            });
-            if (!string.IsNullOrEmpty(value) && (current == null || !current.Target))
-                parent.Add(new HelpBox("Target was removed. Drop a replacement scene object here.", HelpBoxMessageType.Error));
-            else if (entityOnly && current?.Target && !current.Entity)
-                parent.Add(new HelpBox("This object has no selected QuestEntity. A TD must provide its conditions and actions; use the component arrow once one is attached.", HelpBoxMessageType.Info));
-        }
     }
 }

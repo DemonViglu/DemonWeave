@@ -1,1 +1,9 @@
-{"name":"DemonWeave.Core","rootNamespace":"DemonWeave","noEngineReferences":true}
+{
+  "name": "DemonWeave.Core",
+  "rootNamespace": "DemonWeave",
+  "noEngineReferences": true,
+  "overrideReferences": true,
+  "precompiledReferences": [
+    "Newtonsoft.Json.dll"
+  ]
+}

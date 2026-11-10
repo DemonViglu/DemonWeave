@@ -102,7 +102,7 @@ namespace DemonWeave.Editor
             {
                 var state = run?.Find(entry.Key)?.State;
                 entry.Value.titleContainer.style.backgroundColor = state == QuestStatus.Completed ? new Color(.15f, .38f, .27f)
-                    : state == QuestStatus.Active ? new Color(.16f, .34f, .52f) : state == QuestStatus.Failed ? new Color(.5f, .18f, .18f) : new Color(.2f, .23f, .28f);
+                    : state == QuestStatus.Active ? new Color(.16f, .34f, .52f) : new Color(.2f, .23f, .28f);
             }
         }
     }

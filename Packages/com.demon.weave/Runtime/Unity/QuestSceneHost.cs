@@ -8,10 +8,10 @@ namespace DemonWeave.Unity
 {
     // Scene persistence and run ownership. Authors bind targets in Quest Editor, not on this component.
     [AddComponentMenu("DemonWeave/Quest Runner")]
-    public sealed class QuestSceneHost : MonoBehaviour, IQuestAuthoringHost, IQuestWorld, IQuestStateWorld
+    public sealed class QuestSceneHost : MonoBehaviour, IQuestAuthoringHost, IQuestWorld
     {
         [SerializeField, HideInInspector] private QuestBookAsset book;
-        [SerializeField, HideInInspector] private List<EntityBinding> bindings = new List<EntityBinding>();
+        [SerializeField, HideInInspector] private List<ObjectBinding> bindings = new List<ObjectBinding>();
         private readonly List<string> activity = new List<string>();
         [SerializeField] private QuestWorldState worldState;
         public QuestWorldState WorldState
@@ -26,18 +26,14 @@ namespace DemonWeave.Unity
         }
         public bool? ReadWorldFact(string id) => WorldState ? WorldState.Read(id) : null;
         public bool IsQuestCompleted(string collectionId, string questId) => WorldState && WorldState.HasCompleted(collectionId, questId);
-        private CapabilityCatalog capabilities;
         private string activeCollectionId;
-        private readonly Dictionary<(string quest, string node), QuestExecution> executions = new Dictionary<(string, string), QuestExecution>();
+        private readonly Dictionary<(string quest, string node), QuestNodeLogic> executions = new Dictionary<(string, string), QuestNodeLogic>();
         private readonly Queue<(Guid run, string quest, string node, string result)> results = new Queue<(Guid, string, string, string)>();
         public string ExecutionStatus(string quest, string node) => executions.TryGetValue((quest, node), out var execution) ? execution.Status : "";
         public QuestBookAsset BookAsset { get => book; set => book = value; }
-        public List<EntityBinding> BindingEntries => bindings;
+        public List<ObjectBinding> BindingEntries => bindings;
         public QuestRun ActiveRun { get; private set; }
         public IReadOnlyList<string> Activity => activity;
-        public IReadOnlyList<WorldSignal> Signals => QuestMethods.Conditions(bindings);
-        public CapabilityCatalog CreateCapabilities() => CapabilityCatalog.FromBindings(bindings);
-        public bool? ReadFact(string role, string key) => QuestMethods.Read(bindings, role, key);
         private bool started;
         private void Start() { started = true; RestartRun(); }
         private void OnEnable() { if (started) RestartRun(); }
@@ -50,17 +46,11 @@ namespace DemonWeave.Unity
                 if (!book) throw new InvalidOperationException("No Quest Collection is assigned.");
                 var definitions = book.RuntimeDefinitions();
                 if (definitions.Count == 0) { Record("Collection contains drafts only."); return; }
+                var objects = new QuestBindings(bindings, gameObject);
                 foreach (var definition in definitions)
-                    foreach (var node in definition.Stages.Where(n => n.UsesEntityExecution())) {
-                        var entity = bindings.FirstOrDefault(b => b.Role == node.EntityRole)?.Entity;
-                        if (!entity || !entity.Results.SequenceEqual(node.Results)) throw new ArgumentException(node.Title + ": Entity result contract changed or target is missing.");
-                        var error = entity.CheckConfiguration();
-                        if (!string.IsNullOrEmpty(error)) throw new ArgumentException(node.Title + ": " + error);
-                    }
-                var objects = new QuestBindings(bindings); capabilities = CreateCapabilities();
-                var conditions = Signals;
-                var errors = QuestValidation.Validate(definitions, role => objects.Find(role), capabilities.Validate,
-                    (role, key, isEvent) => conditions.Any(c => c.Role == role && c.Key == key && c.IsEvent == isEvent) ? "" : "Condition is not declared on the selected object: " + key);
+                    foreach (var node in definition.Stages.Where(n => n.UsesLogicExecution()))
+                        QuestLogicCatalog.Validate(node, objects);
+                var errors = QuestValidation.Validate(definitions, id => QuestLogicCatalog.Find(id) != null);
                 if (errors.Count > 0) throw new ArgumentException(string.Join("\n", errors));
                 var stateError = ValidateWorldBindings(definitions);
                 if (!string.IsNullOrEmpty(stateError)) throw new ArgumentException(stateError);
@@ -74,7 +64,7 @@ namespace DemonWeave.Unity
         {
             ActiveRun.Refresh();
             var run = ActiveRun;
-            var ticked = new HashSet<QuestExecution>();
+            var ticked = new HashSet<QuestNodeLogic>();
             int transitions = 128;
             do {
                 foreach (var pair in executions.ToArray())
@@ -82,16 +72,16 @@ namespace DemonWeave.Unity
                         executions.Remove(pair.Key); Release(pair.Value);
                     }
                 foreach (var owner in run.Instances.Where(q => q.State == QuestStatus.Active))
-                    foreach (var node in owner.Stages.Where(n => n.UsesEntity && n.State == QuestStatus.Active)) {
+                    foreach (var node in owner.Stages.Where(n => n.UsesLogic && n.State == QuestStatus.Active)) {
                         var key = (owner.DefinitionId, node.Id);
-                        var entity = bindings.FirstOrDefault(b => b.Role == node.EntityRole)?.Entity;
-                        if (!entity || !entity.isActiveAndEnabled) throw new InvalidOperationException(node.Title + ": target component is missing or disabled.");
                         if (!executions.TryGetValue(key, out var execution)) {
                             if (node.IsPaused) continue;
-                            execution = entity.CreateExecution() ?? throw new InvalidOperationException("CreateExecution returned null.");
-                            if (executions.Values.Contains(execution)) throw new InvalidOperationException("Return a fresh execution for each node.");
+                            var definition = node.DefinitionSnapshot();
+                            var objects = new QuestBindings(bindings, gameObject);
+                            var logic = QuestLogicCatalog.Validate(definition, objects);
+                            execution = logic;
                             executions.Add(key, execution);
-                            execution.Start(result => { if (ActiveRun == run && !run.IsClosed) results.Enqueue((run.Id, key.Item1, key.Item2, result)); });
+                            execution.Start(objects, result => { if (ActiveRun == run && !run.IsClosed) results.Enqueue((run.Id, key.Item1, key.Item2, result)); });
                         }
                         if (ActiveRun != run || run.IsClosed) return;
                         execution.SetPaused(node.IsPaused);
@@ -107,8 +97,8 @@ namespace DemonWeave.Unity
                     if (run.Find(result.quest)?.Stage(result.node)?.State == QuestStatus.Active && !run.CanProgress(result.quest, result.node)) {
                         results.Enqueue(result); continue;
                     }
-                    if (--transitions == 0) throw new InvalidOperationException("Entity transition budget exceeded.");
-                    var accepted = run.CompleteEntity(result.run, result.quest, result.node, result.result);
+                    if (--transitions == 0) throw new InvalidOperationException("Node transition budget exceeded.");
+                    var accepted = run.CompleteNode(result.run, result.quest, result.node, result.result);
                     if (accepted && executions.TryGetValue((result.quest, result.node), out var finished)) {
                         executions.Remove((result.quest, result.node));
                         Release(finished, QuestStopReason.Completed);
@@ -121,18 +111,10 @@ namespace DemonWeave.Unity
             foreach (var pair in executions.ToArray())
                 if (run.Find(pair.Key.quest)?.Stage(pair.Key.node)?.State != QuestStatus.Active) { executions.Remove(pair.Key); Release(pair.Value); }
             PublishCompletions(run);
-            int budget = 128;
             while (ActiveRun != null && ActiveRun.TryRead(out var notice))
-            {
-                if (--budget == 0) throw new InvalidOperationException("Quest action budget exceeded.");
                 Record(notice.QuestId + "/" + notice.StageId + " " + notice.Kind + ": " + notice.Detail);
-                if (notice.Kind != QuestNoticeKind.Exec || !ActiveRun.MayExecute(notice)) continue;
-                var result = capabilities.Execute(notice.Execution.CapabilityId, notice.Execution.ArgumentsJson);
-                Record(notice.QuestId + "/" + notice.StageId + " " + notice.Execution.CapabilityId + ": " + (result.Success ? "OK / " : "Failed / ") + result.Message);
-                // Only the next fact evaluation can complete a Quest, never the action return value itself.
-            }
         }
-        private void Release(QuestExecution execution, QuestStopReason reason = QuestStopReason.Cancelled)
+        private void Release(QuestNodeLogic execution, QuestStopReason reason = QuestStopReason.Cancelled)
         { try { execution.Stop(reason); } catch (Exception error) { Record("Cleanup: " + error.Message); Debug.LogException(error, this); } }
         private void PublishCompletions(QuestRun run)
         {

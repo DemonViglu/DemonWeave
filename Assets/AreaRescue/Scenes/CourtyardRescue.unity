@@ -2262,10 +2262,7 @@ GameObject:
   - component: {fileID: 257158103}
   - component: {fileID: 257158110}
   - component: {fileID: 257158109}
-  - component: {fileID: 257158114}
-  - component: {fileID: 257158113}
-  - component: {fileID: 257158112}
-  - component: {fileID: 257158111}
+  - component: {fileID: 1388984969}
   m_Layer: 0
   m_Name: Prison Encounter
   m_TagString: Untagged
@@ -2375,65 +2372,6 @@ MonoBehaviour:
   ReleaseSignal: {fileID: 11400000, guid: 21fbb369baf3eae4eaff681d543ea08b, type: 2}
   checkpoint: {fileID: 1693813435}
   retryMessage: Defeated. Select RETRY CHECKPOINT.
---- !u!114 &257158111
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 257158101}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7852a8bcfa077874eaf6378faefb7da0, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: DemonWeave.AreaRescue::DemonWeave.AreaRescue.RescueRecoveryEntity
-  entityId: 0a02d491acec41b380c7048a714b74a6
-  encounter: {fileID: 257158110}
-  mode: 0
---- !u!114 &257158112
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 257158101}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d91170f3e29ecd743b1d08e634161e9c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: DemonWeave.AreaRescue::DemonWeave.AreaRescue.RescueCompanionEntity
-  entityId: 42abb92340b14159b61f023ce22c0c88
-  encounter: {fileID: 257158110}
---- !u!114 &257158113
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 257158101}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d067948e17983ad4ca3ad779a90f214d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: DemonWeave.AreaRescue::DemonWeave.AreaRescue.RescueCombatEntity
-  entityId: 63f6790e7dc54ebf96031f00a70e3b42
-  encounter: {fileID: 257158110}
---- !u!114 &257158114
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 257158101}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 20154c21fda987e4c8df339e9c4a2bc2, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: DemonWeave.AreaRescue::DemonWeave.AreaRescue.RescueOpeningEntity
-  entityId: 17aec0d8014042cfa8f129a45202bb4c
-  encounter: {fileID: 257158110}
-  door: {fileID: 532547211}
-  timeout: 20
 --- !u!1 &268244119
 GameObject:
   m_ObjectHideFlags: 0
@@ -3587,7 +3525,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: dcadcf32fcc3bd842aa38c58498af95e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: DemonWeave.AreaRescue::DemonWeave.AreaRescue.RescueEntryZone
-  entityId: 680752b11bae4be1b58cc113f59de460
   Player: {fileID: 1439403914}
 --- !u!1 &391800803
 GameObject:
@@ -12936,30 +12873,13 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1387123389}
   m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
---- !u!1 &1388984968
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1388984970}
-  - component: {fileID: 1388984969}
-  m_Layer: 0
-  m_Name: Quest Runtime
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
 --- !u!114 &1388984969
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1388984968}
+  m_GameObject: {fileID: 257158101}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: cc668da4738fcb842aa34b37ced18dbe, type: 3}
@@ -12967,40 +12887,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: DemonWeave.Unity::DemonWeave.Unity.QuestSceneHost
   book: {fileID: 11400000, guid: c9357c95c9bd77b468676fbbfe33f3e8, type: 2}
   bindings:
-  - Role: entity:680752b11bae4be1b58cc113f59de460
-    Entity: {fileID: 390426498}
-    Object: {fileID: 0}
-  - Role: entity:17aec0d8014042cfa8f129a45202bb4c
-    Entity: {fileID: 257158114}
-    Object: {fileID: 0}
-  - Role: entity:63f6790e7dc54ebf96031f00a70e3b42
-    Entity: {fileID: 257158113}
-    Object: {fileID: 0}
-  - Role: entity:42abb92340b14159b61f023ce22c0c88
-    Entity: {fileID: 257158112}
-    Object: {fileID: 0}
-  - Role: entity:0a02d491acec41b380c7048a714b74a6
-    Entity: {fileID: 257158111}
-    Object: {fileID: 0}
-  - Role: object:54c49cfa8fc8419cbe0b9713588fbd8e
-    Entity: {fileID: 0}
-    Object: {fileID: 1388984968}
+  - Role: rescue.entry-zone
+    Object: {fileID: 390426492}
+  - Role: rescue.door
+    Object: {fileID: 532547211}
   worldState: {fileID: 0}
---- !u!4 &1388984970
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1388984968}
-  serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1491363694}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1400675524
 GameObject:
   m_ObjectHideFlags: 0
@@ -14435,7 +14326,6 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1693813436}
-  - {fileID: 1388984970}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &1495488994

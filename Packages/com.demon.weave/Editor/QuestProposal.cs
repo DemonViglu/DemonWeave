@@ -41,15 +41,15 @@ namespace DemonWeave.Editor
     public static class QuestProposalReview
     {
         private static readonly HashSet<string> Fields = new HashSet<string>(new[] {
-            "Title", "ParentId", "StartComment", "FinishComment", "Accept", "RunWhen", "InterruptWhen", "StageCompletion", "FinishCombination", "FailCombination", "Finish", "Fail", "BeginExec", "FinishExec", "FailExec", "CancelChildrenOnEnd", "Stages"
+            "Title", "ParentId", "StartComment", "FinishComment", "Accept", "RunWhen", "InterruptWhen", "StageCompletion", "CancelChildrenOnEnd", "Stages"
         }, StringComparer.Ordinal);
         public static string Revision(QuestBookAsset book) => Hash(book.Id + "\n" + book.Title + "\n" + book.ExportDefinitions());
-        private static string Bindings(IQuestAuthoringHost host) => host == null ? "unbound" : Hash(string.Join("\n", host.BindingEntries.OrderBy(b => b.Role).Select(b => b.Role + ":" + (b.Target ? (b.Entity ? b.Entity.Id : "object") + ":" + b.Target.GetEntityId() : "missing"))));
+        private static string Bindings(IQuestAuthoringHost host) => host == null ? "unbound" : Hash(((host as Component) ? (host as Component).gameObject.GetEntityId().ToString() : "no-owner") + "\n" + string.Join("\n", host.BindingEntries.OrderBy(b => b.Role).Select(b => b.Role + ":" + (b.Target ? "object" + ":" + b.Target.GetEntityId() : "missing"))));
         private static string Hash(string value)
         { using (var sha = SHA256.Create()) return BitConverter.ToString(sha.ComputeHash(Encoding.UTF8.GetBytes(value))).Replace("-", "").ToLowerInvariant(); }
         public static PreparedQuestChange Prepare(QuestBookAsset book, IQuestAuthoringHost host, string proposalJson, bool tableImport = false)
         {
-            if (!book || host == null && !tableImport) throw new ArgumentException("Select a Quest Collection and Scene Host for validation.");
+            if (!book) throw new ArgumentException("Select a Quest Collection for validation.");
             if (proposalJson == null || proposalJson.Length > (tableImport ? 16000000 : 200000)) throw new ArgumentException("Proposal is empty or too large.");
             QuestProposal proposal;
             using (var reader = new JsonTextReader(new StringReader(proposalJson)) { MaxDepth = 64, DateParseHandling = DateParseHandling.None })
@@ -89,7 +89,7 @@ namespace DemonWeave.Editor
                 }
                 else if (operation.Op == "set-stage")
                 {
-                    var allowed = new[] { "TypeId", "EntityRole", "Control", "Results", "Title", "Comment", "Required", "FinishResult", "After", "OpenWhen", "RunWhen", "InterruptWhen", "Objectives", "Completion", "BeginExec", "FinishExec", "Routes", "Switches" };
+                    var allowed = new[] { "LogicId", "Parameters", "Control", "Results", "Title", "Comment", "Required", "FinishResult", "After", "OpenWhen", "RunWhen", "InterruptWhen" };
                     var stage = (quest?["Stages"] as JArray)?.OfType<JObject>().SingleOrDefault(s => (string)s["Id"] == operation.StageId);
                     if (stage == null || string.IsNullOrWhiteSpace(operation.StageId) || !allowed.Contains(operation.Field) || operation.Value == null)
                         throw new ArgumentException(path + ": set-stage requires an existing stage ID and allowed field.");
@@ -101,7 +101,7 @@ namespace DemonWeave.Editor
             var definitions = QuestBookAsset.ParseDefinitions(array.ToString(Formatting.None));
             Validate(book, definitions, host);
             return new PreparedQuestChange { Book = book, Revision = Revision(book), BindingRevision = Bindings(host), Definitions = definitions,
-                Summary = proposal.Summary, Diff = diff.ToString(), AllowUnbound = tableImport };
+                Summary = proposal.Summary, Diff = diff.ToString(), AllowUnbound = host == null || tableImport };
         }
         private static void Validate(QuestBookAsset book, IReadOnlyList<QuestDefinition> definitions, IQuestAuthoringHost host)
         {

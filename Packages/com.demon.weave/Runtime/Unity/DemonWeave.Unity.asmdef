@@ -1,1 +1,11 @@
-{"name":"DemonWeave.Unity","rootNamespace":"DemonWeave.Unity","references":["DemonWeave.Core"]}
+{
+  "name": "DemonWeave.Unity",
+  "rootNamespace": "DemonWeave.Unity",
+  "references": [
+    "DemonWeave.Core"
+  ],
+  "overrideReferences": true,
+  "precompiledReferences": [
+    "Newtonsoft.Json.dll"
+  ]
+}

@@ -16,7 +16,7 @@ namespace DemonWeave.Editor
         private readonly System.Action<string, Vector2> createAt;
         private readonly Dictionary<string, Node> guides = new Dictionary<string, Node>();
         public Vector2 PointerPosition { get; private set; } = new Vector2(60, 200);
-        public QuestStageGraph(QuestDefinition quest, System.Action<string> selected = null, System.Func<QuestStage, QuestStage> outcomeSource = null, System.Func<QuestCondition, string> outcomeLabel = null, System.Action<IReadOnlyList<string>> deleted = null, System.Action<string,string> unlinked = null, System.Action<string,string> linked = null, System.Action createNode = null, bool frameOnOpen = true, System.Func<QuestStage, QuestExec, string> actionLabel = null, System.Action<string, Vector2> createAt = null, System.Action<QuestStage> opened = null, System.Func<QuestStage, string> comment = null, System.Action<IReadOnlyDictionary<string, Rect>> moved = null, System.Action<QuestControl, Vector2> createControl = null)
+        public QuestStageGraph(QuestDefinition quest, System.Action<string> selected = null, System.Action<IReadOnlyList<string>> deleted = null, System.Action<string,string> unlinked = null, System.Action<string,string> linked = null, System.Action createNode = null, bool frameOnOpen = true, System.Action<string, Vector2> createAt = null, System.Action<QuestStage> opened = null, System.Func<QuestStage, string> comment = null, System.Action<IReadOnlyDictionary<string, Rect>> moved = null, System.Action<QuestControl, Vector2> createControl = null)
         {
             this.createAt = createAt; this.createControl = createControl;
             this.createNode = createNode;
@@ -33,7 +33,7 @@ namespace DemonWeave.Editor
             var nodes = new Dictionary<string, Node>();
             var resultPorts = new Dictionary<string, Port>();
             var inputs = new Dictionary<string, Port>(); var outputs = new Dictionary<string, Port>();
-            int i = 0, branchRow = 0;
+            int i = 0;
             foreach (var stage in quest.Stages)
             {
                 if (nodes.ContainsKey(stage.Id)) continue;
@@ -45,7 +45,7 @@ namespace DemonWeave.Editor
                 node.extensionContainer.style.paddingLeft = 14; node.extensionContainer.style.paddingRight = 14;
                 node.extensionContainer.style.paddingTop = 12; node.extensionContainer.style.paddingBottom = 12;
                 node.extensionContainer.style.minHeight = 48;
-                node.tooltip = "Double-click to open Entity code";
+                node.tooltip = "Double-click to open node logic code";
                 node.RegisterCallback<MouseDownEvent>(evt => {
                     if (evt.button != 0) return;
                     selected?.Invoke(stage.Id);
@@ -62,12 +62,10 @@ namespace DemonWeave.Editor
                 var input = node.InstantiatePort(Orientation.Horizontal, Direction.Input, Port.Capacity.Multi, typeof(bool));
                 var output = node.InstantiatePort(Orientation.Horizontal, Direction.Output, Port.Capacity.Multi, typeof(bool));
                 output.tooltip = "Drag to another node to set its prerequisite.";
-                var producer = outcomeSource?.Invoke(stage);
-                input.portName = stage.Control == QuestControl.All ? "All inputs" : stage.Control == QuestControl.Any ? "Any input" : producer == null ? "Ready" : "Condition"; output.portName = "Completed";
+                input.portName = stage.Control == QuestControl.All ? "All inputs" : stage.Control == QuestControl.Any ? "Any input" : "Ready"; output.portName = "Completed";
                 input.userData = output.userData = stage.Id;
                 input.portColor = output.portColor = new Color(.35f, .73f, .72f);
                 node.inputContainer.Add(input);
-                if (stage.Results.Count == 0 && !stage.UsesEntityExecution()) node.outputContainer.Add(output);
                 foreach (var result in stage.Results) {
                     var port = node.InstantiatePort(Orientation.Horizontal, Direction.Output, Port.Capacity.Multi, typeof(bool));
                     port.portName = UnityEditor.ObjectNames.NicifyVariableName(result); port.userData = ResultPort(stage.Id, result);
@@ -78,22 +76,9 @@ namespace DemonWeave.Editor
                 if (!string.IsNullOrWhiteSpace(note)) Describe(note);
                 else node.extensionContainer.style.display = DisplayStyle.None;
                 node.RefreshExpandedState(); node.RefreshPorts();
-                node.SetPosition(producer == null ? new Rect(35 + i++ * 330, 80, 300, 220) : new Rect(365, 420 + branchRow++ * 280, 300, 220)); AddElement(node);
+                node.SetPosition(new Rect(35 + i++ * 330, 80, 300, 220)); AddElement(node);
                 nodes.Add(stage.Id, node); inputs.Add(stage.Id, input); outputs.Add(stage.Id, output);
                 stageNodes.Add(stage.Id, node);
-            }
-            foreach (var stage in quest.Stages)
-            {
-                var producer = outcomeSource?.Invoke(stage);
-                if (producer == null || !nodes.TryGetValue(producer.Id, out var source)) continue;
-                var port = source.InstantiatePort(Orientation.Horizontal, Direction.Output, Port.Capacity.Multi, typeof(bool));
-                port.portName = "Starts monitoring"; port.tooltip = outcomeLabel?.Invoke(stage.OpenWhen);
-                port.portColor = new Color(1,.65f,.35f); port.pickingMode = PickingMode.Ignore;
-                source.outputContainer.Add(port); source.RefreshPorts(); source.RefreshExpandedState();
-                var outcomeEdge = port.ConnectTo(inputs[stage.Id]);
-                outcomeEdge.capabilities &= ~Capabilities.Deletable;
-                outcomeEdge.tooltip = "Condition link. Edit the node condition to change this dependency.";
-                AddElement(outcomeEdge);
             }
             foreach (var stage in quest.Stages)
                 foreach (var previous in stage.After.Distinct())
